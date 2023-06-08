@@ -27,49 +27,30 @@ gl.linkProgram(program);
 
 gl.useProgram(program);
 
-const angleLocation = gl.getAttribLocation(program, "a_angle")!;
-const colorLocation = gl.getAttribLocation(program, "a_color")!;
+const positionLocation = gl.getAttribLocation(program, "a_position")!;
 const timeUniformLocation = gl.getUniformLocation(program, "u_time")!;
 const ratioUniformLocation = gl.getUniformLocation(program, "u_ratio")!;
 
 const vao = gl.createVertexArray();
 gl.bindVertexArray(vao);
 
-const angles: number[] = [];
-const colors: number[] = [];
-
-for (let theta = 0; theta < 360; theta++) {
-  angles.push((theta / 360) * (2 * Math.PI), 1); // outer vertex
-  angles.push(0, 0); // center vertex
-  angles.push(((theta + 1) / 360) * (2 * Math.PI), 1); // outer vertex
-  colors.push(Math.random(), Math.random(), Math.random());
-  colors.push(Math.random(), Math.random(), Math.random());
-  colors.push(Math.random(), Math.random(), Math.random());
-}
-
-console.log(angles);
-
-const angleBuffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, angleBuffer);
-gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(angles), gl.STATIC_DRAW);
-gl.enableVertexAttribArray(angleLocation);
-gl.vertexAttribPointer(angleLocation, 2, gl.FLOAT, false, 0, 0);
-
-const colorBuffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-gl.enableVertexAttribArray(colorLocation);
-gl.vertexAttribPointer(colorLocation, 3, gl.FLOAT, false, 0, 0);
+const positionBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+gl.bufferData(
+  gl.ARRAY_BUFFER,
+  new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, -1, 1, 1, 1]),
+  gl.STATIC_DRAW
+);
+gl.enableVertexAttribArray(positionLocation);
+gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
 gl.useProgram(program);
 
 const primitiveType = gl.TRIANGLES;
-const count = 360 * 3;
+const count = 6;
 gl.drawArrays(primitiveType, 0, count);
 
 let u = 0;
-
-// let rate: number | undefined = undefined;
 
 const draw = () => {
   requestAnimationFrame(draw);
@@ -79,16 +60,9 @@ const draw = () => {
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-  // if (u > 5 * 60 * 1.2) {
-  //   if (rate === undefined) {
-  //     rate = (u + 1.2) / u;
-  //   }
-  //   u *= rate;
-  // } else {
-  u += 1.2;
-  // }
+  u += 1;
 
-  gl.uniform1f(timeUniformLocation, u / 20);
+  gl.uniform1f(timeUniformLocation, u);
   gl.uniform1f(ratioUniformLocation, canvas.width / canvas.height);
   gl.drawArrays(primitiveType, 0, count);
 };

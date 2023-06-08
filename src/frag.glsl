@@ -3,17 +3,18 @@
 precision highp float;
 
 in float v_time;
-in vec4 v_position;
+in vec2 v_position;
 in vec3 v_color;
 
 out vec4 outColor;
 
 void main() {
-//   outColor = vec4(mod(v_test + v_position.x * 10.0, 1.0), mod(v_test * 1.6, 1.0), mod(v_test * 0.4, 1.0), 1.0);
-//   outColor = vec4(
-//     ((v_position.x) + 1.0) / 4.0 + 0.5 * (sin(v_test) + 1.0) / 2.0, 
-//     ((v_position.y) + 1.0) / 2.0 * (sin(v_test * 1.6) + 1.0) / 2.0, 
-//     (abs(v_position.x + v_position.y) + 1.0) / 2.0 * (sin(v_test * 0.6) + 1.0) / 2.0, 
-//     1.0);
-    outColor = vec4(mod(v_color + v_position.xyz + v_time / 3.0, 1.0), 1.0);
+    float size = v_time / 5.0;
+    vec3 color1 = vec3(181.0, 136.0, 99.0) / 256.0;
+    vec3 color2 = vec3(240.0, 217.0, 181.0) / 256.0;
+    float parity = mod(floor(v_position.x * size) + floor(v_position.y * size), 2.0);
+    vec3 color = color1 * parity + color2 * (1.0 - parity);
+    outColor = vec4(
+        color,
+    1.0);
 }
