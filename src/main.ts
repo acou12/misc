@@ -60,7 +60,7 @@ const draw = () => {
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-  u += 1;
+  u += 0.01;
 
   gl.uniform1f(timeUniformLocation, u);
   gl.uniform1f(ratioUniformLocation, canvas.width / canvas.height);
