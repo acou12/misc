@@ -27,73 +27,49 @@ gl.linkProgram(program);
 
 gl.useProgram(program);
 
-const positionLocation = gl.getAttribLocation(program, "a_position")!;
+const angleLocation = gl.getAttribLocation(program, "a_angle")!;
 const colorLocation = gl.getAttribLocation(program, "a_color")!;
-const testUniformLocation = gl.getUniformLocation(program, "u_test")!;
+const timeUniformLocation = gl.getUniformLocation(program, "u_time")!;
 const ratioUniformLocation = gl.getUniformLocation(program, "u_ratio")!;
-
-const a = 1;
 
 const vao = gl.createVertexArray();
 gl.bindVertexArray(vao);
 
-const positionBuffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-
-const positions = [];
+const angles: number[] = [];
+const colors: number[] = [];
 
 for (let theta = 0; theta < 360; theta++) {
-  const r = 0.5 + Math.sin((theta / 360) * Math.PI * 12) / 10;
-  positions.push(
-    ...[
-      r * Math.cos(theta * ((2 * Math.PI) / 360)),
-      r * Math.sin(theta * ((2 * Math.PI) / 360)),
-      0,
-      0,
-      r * Math.cos((theta + 1) * ((2 * Math.PI) / 360)),
-      r * Math.sin((theta + 1) * ((2 * Math.PI) / 360)),
-    ]
-  );
+  angles.push((theta / 360) * (2 * Math.PI), 1); // outer vertex
+  angles.push(0, 0); // center vertex
+  angles.push(((theta + 1) / 360) * (2 * Math.PI), 1); // outer vertex
+  colors.push(Math.random(), Math.random(), Math.random());
+  colors.push(Math.random(), Math.random(), Math.random());
+  colors.push(Math.random(), Math.random(), Math.random());
 }
 
-gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+console.log(angles);
 
-gl.enableVertexAttribArray(positionLocation);
-
-let size = 2;
-let type = gl.FLOAT;
-let normalize = false;
-let stride = 0;
-let offset = 0;
-gl.vertexAttribPointer(positionLocation, size, type, normalize, stride, offset);
+const angleBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, angleBuffer);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(angles), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(angleLocation);
+gl.vertexAttribPointer(angleLocation, 2, gl.FLOAT, false, 0, 0);
 
 const colorBuffer = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-
-const colors: number[] = [];
-
-for (let i = 0; i < 360 * 3 * 3; i++) {
-  colors.push(Math.random());
-}
-
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-
 gl.enableVertexAttribArray(colorLocation);
-
-size = 3;
-type = gl.FLOAT;
-normalize = false;
-stride = 0;
-offset = 0;
-gl.vertexAttribPointer(colorLocation, size, type, normalize, stride, offset);
+gl.vertexAttribPointer(colorLocation, 3, gl.FLOAT, false, 0, 0);
 
 gl.useProgram(program);
 
 const primitiveType = gl.TRIANGLES;
 const count = 360 * 3;
-gl.drawArrays(primitiveType, offset, count);
+gl.drawArrays(primitiveType, 0, count);
 
 let u = 0;
+
+// let rate: number | undefined = undefined;
 
 const draw = () => {
   requestAnimationFrame(draw);
@@ -103,9 +79,18 @@ const draw = () => {
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-  gl.uniform1f(testUniformLocation, (u += 1.2) / 20);
+  // if (u > 5 * 60 * 1.2) {
+  //   if (rate === undefined) {
+  //     rate = (u + 1.2) / u;
+  //   }
+  //   u *= rate;
+  // } else {
+  u += 1.2;
+  // }
+
+  gl.uniform1f(timeUniformLocation, u / 20);
   gl.uniform1f(ratioUniformLocation, canvas.width / canvas.height);
-  gl.drawArrays(primitiveType, offset, count);
+  gl.drawArrays(primitiveType, 0, count);
 };
 
 draw();

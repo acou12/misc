@@ -2,7 +2,7 @@
 
 precision highp float;
 
-in float v_test;
+in float v_time;
 in vec4 v_position;
 in vec3 v_color;
 
@@ -15,5 +15,5 @@ void main() {
 //     ((v_position.y) + 1.0) / 2.0 * (sin(v_test * 1.6) + 1.0) / 2.0, 
 //     (abs(v_position.x + v_position.y) + 1.0) / 2.0 * (sin(v_test * 0.6) + 1.0) / 2.0, 
 //     1.0);
-    outColor = vec4(v_color, 1.0);
+    outColor = vec4(mod(v_color + v_position.xyz + v_time / 3.0, 1.0), 1.0);
 }
