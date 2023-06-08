@@ -16,6 +16,9 @@ void main() {
 
   float rotation = 6.28 * 5.0 * sin(u_test / 20.0);
 
+  float r = sqrt(a_position.x * a_position.x + a_position.y * a_position.y);
+  r *= sin(u_test);
+
   gl_Position = a_position;
   gl_Position.xy = vec2(
     gl_Position.x * cos(rotation) + gl_Position.y * -sin(rotation),

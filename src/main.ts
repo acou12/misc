@@ -40,18 +40,23 @@ gl.bindVertexArray(vao);
 const positionBuffer = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 
-gl.bufferData(
-  gl.ARRAY_BUFFER,
-  new Float32Array([
-    0,
-    (((2 / 3) * Math.sqrt(3)) / 2) * a,
-    -a / 2,
-    (((-1 / 3) * Math.sqrt(3)) / 2) * a,
-    a / 2,
-    (((-1 / 3) * Math.sqrt(3)) / 2) * a,
-  ]),
-  gl.STATIC_DRAW
-);
+const positions = [];
+
+for (let theta = 0; theta < 360; theta++) {
+  const r = 0.5 + Math.sin((theta / 360) * Math.PI * 12) / 10;
+  positions.push(
+    ...[
+      r * Math.cos(theta * ((2 * Math.PI) / 360)),
+      r * Math.sin(theta * ((2 * Math.PI) / 360)),
+      0,
+      0,
+      r * Math.cos((theta + 1) * ((2 * Math.PI) / 360)),
+      r * Math.sin((theta + 1) * ((2 * Math.PI) / 360)),
+    ]
+  );
+}
+
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
 gl.enableVertexAttribArray(positionLocation);
 
@@ -65,11 +70,13 @@ gl.vertexAttribPointer(positionLocation, size, type, normalize, stride, offset);
 const colorBuffer = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
 
-gl.bufferData(
-  gl.ARRAY_BUFFER,
-  new Float32Array([1, 0, 0, 1, 0, 1, 0, 1, 1]),
-  gl.STATIC_DRAW
-);
+const colors: number[] = [];
+
+for (let i = 0; i < 360 * 3 * 3; i++) {
+  colors.push(Math.random());
+}
+
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
 
 gl.enableVertexAttribArray(colorLocation);
 
@@ -83,7 +90,7 @@ gl.vertexAttribPointer(colorLocation, size, type, normalize, stride, offset);
 gl.useProgram(program);
 
 const primitiveType = gl.TRIANGLES;
-const count = 3;
+const count = 360 * 3;
 gl.drawArrays(primitiveType, offset, count);
 
 let u = 0;
