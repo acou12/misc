@@ -55,8 +55,8 @@ let u = 0;
 const draw = () => {
   requestAnimationFrame(draw);
 
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  canvas.width = window.innerWidth * 1.5;
+  canvas.height = window.innerHeight * 1.5;
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
