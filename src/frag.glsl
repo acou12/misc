@@ -8,12 +8,37 @@ in vec3 v_color;
 
 out vec4 outColor;
 
+float f(float x) {
+    return 3.0 * cos(x / 2.0);
+}
+
 void main() {
-    float res = 100.0;
-    vec2 new_position = v_position;
-    new_position.x += sin(v_time) * (mod(floor(v_position.y * res), 2.0) * 2.0 - 1.0);
-    float rand = round(fract(sin(dot(floor((new_position.xy) * res) / res,vec2(12.1,78.233)))*(10000.0 + v_time)));
+    vec3 color = vec3(0.0);
+    vec2 uv = v_position;
+    uv *= 10.0;
+
+    float small_width = 0.03;
+
+    color += 1.0 - step(small_width, fract(uv.x));
+    color += 1.0 - step(small_width, fract(uv.y));
+
+    float large_width = 0.05;
+
+    color += 1.0 - step(large_width, abs(uv.x));
+    color += 1.0 - step(large_width, abs(uv.y));
+
+    color = clamp(color, 0.0, 1.0);
+
+    float current_x = smoothstep(0.0, 20.0, v_time * 10.0) * 20.0 - 10.0;
+
+    float function = (1.0 - step(0.1, abs(uv.y - f(uv.x)))) * (1.0 - step(current_x, uv.x))
+                   + (1.0 - step(0.08, distance(uv, vec2(current_x, f(current_x)))));
+    function = clamp(function, 0.0, 1.0);
+    color -= function;
+    color = clamp(color, 0.0, 1.0);
+    color += function * vec3(1.0, 0.5, 0.0);
+
     outColor = vec4(
-        vec3(rand),
+        color,
     1.0);
 }
