@@ -7,3 +7,24 @@ canvas {
   width: 100vw;
   height: 100vh;
 }
+
+textarea {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 300px;
+  height: 100px;
+  font-size: 20px;
+
+  color: white;
+  background-color: black;
+  opacity: 70%;
+
+  outline: none;
+  border: none;
+
+  border: solid white 2px;
+  border-radius: 10px;
+
+  padding: 5px;
+}
