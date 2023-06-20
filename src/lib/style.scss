@@ -1,0 +1,31 @@
+* {
+	font-family: 'Ubuntu', sans-serif;
+}
+
+.tag {
+	display: inline;
+	color: white;
+	padding: 5px;
+	margin: 5px 2px;
+	border-radius: 10px;
+	&:hover {
+		outline: solid white 3px;
+	}
+	white-space: nowrap;
+}
+
+.item {
+	padding: 5px 0;
+	line-height: 24px;
+}
+
+.center {
+	max-width: 500px;
+	margin: auto;
+}
+
+input {
+	width: 100%;
+	height: 30px;
+	margin-top: 10px;
+}
