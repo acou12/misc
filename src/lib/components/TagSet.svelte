@@ -1,6 +1,6 @@
 <script lang="ts">
 	export let tags: string[];
-	export let onClick: (tag: string) => void;
+	export let onClick: (tag: string) => void = () => {};
 
 	/**
 	 * rough hash of a string name to make colors consistent across sessions.
@@ -19,7 +19,10 @@
 </script>
 
 {#each tags as tag}
-	<span class="tag" style="background-color: {stringColor(tag)}" on:click={() => onClick(tag)}
-		>#{tag}</span
+	<span
+		class="tag"
+		style="background-color: {stringColor(tag)}"
+		on:click={() => onClick(tag)}
+		on:keydown={() => onClick(tag)}>#{tag}</span
 	>
 {/each}

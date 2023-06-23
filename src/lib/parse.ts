@@ -6,7 +6,8 @@ export enum InputType {
 	CREATE,
 	CONTEXT,
 	DELETE,
-	SEARCH
+	SEARCH,
+	SAVE
 }
 
 export type Input =
@@ -32,7 +33,10 @@ export type Input =
 	| {
 			type: InputType.SEARCH;
 			discriminator: (item: Item) => boolean;
-	  };
+	  }
+      | {
+        type: InputType.SAVE
+      }
 
 export const parseInput = (input: string): Input => {
 	if (input.length === 0) {
@@ -47,6 +51,10 @@ export const parseInput = (input: string): Input => {
 		};
 	} else if (input[0] === '@') {
 		return parseContext(input);
+	} else if (input[0] === '%') {
+		return {
+			type: InputType.SAVE
+		};
 	} else {
 		return parseSearch(input);
 	}

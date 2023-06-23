@@ -1,12 +1,10 @@
 <script lang="ts">
-	import '$lib/style.scss';
 	import { onMount } from 'svelte';
 	import { InputType, parseInput } from '$lib/parse';
 	import type { Item } from '$lib/types';
-	import { items } from '$lib/store';
+	import { items, contexts } from '$lib/store';
 	import TagSet from '$lib/components/TagSet.svelte';
-
-	let contexts: string[] = [];
+	import { download, saveItems } from '$lib/utils';
 
 	let input: string = '';
 
@@ -15,7 +13,7 @@
 	$: filteredItems = $items.filter(
 		(item) =>
 			(parseResult.type === InputType.SEARCH ? parseResult.discriminator(item) : true) &&
-			contexts.every((c) => item.tags.includes(c))
+			$contexts.every((c) => item.tags.includes(c))
 	);
 
 	const inputSubmit = () => {
@@ -29,20 +27,24 @@
 					{
 						id: Math.floor(Math.random() * 1000000),
 						text: parseResult.text,
-						tags: parseResult.tags.concat(contexts)
+						tags: parseResult.tags.concat($contexts),
+						content: ''
 					},
 					...$items
 				];
 				input = '';
 				break;
 			case InputType.CONTEXT:
-				contexts = [...contexts, ...parseResult.tags];
+				$contexts = [...$contexts, ...parseResult.tags];
 				input = '';
 				break;
 			case InputType.DELETE:
-				$items = [];
-				contexts = [];
+				// $items = [];
+				// $contexts = [];
 				input = '';
+				break;
+			case InputType.SAVE:
+				download('axon-items.json', JSON.stringify($items));
 				break;
 		}
 		saveItems();
@@ -62,16 +64,12 @@
 		for (const x of [13539042, 11647610, 13327862, 7175073]) n = (n * x) % 0xffffff;
 		return '#' + n.toString(16).padStart(6, '0');
 	};
-
-	const saveItems = () => {
-		localStorage.setItem('items', JSON.stringify($items));
-	};
 </script>
 
 <div class="center">
 	Current context: <TagSet
-		tags={contexts}
-		onClick={(context) => (contexts = contexts.filter((c) => c !== context))}
+		tags={$contexts}
+		onClick={(context) => ($contexts = $contexts.filter((c) => c !== context))}
 	/>
 	<form on:submit|preventDefault={inputSubmit}>
 		<input type="text" bind:value={input} autofocus />
@@ -82,7 +80,7 @@
 				<a href="/note/{item.id}">
 					<li class="item">
 						{item.text}
-						{#each item.tags.filter((tag) => !contexts.includes(tag)) as tag}
+						{#each item.tags.filter((tag) => !$contexts.includes(tag)) as tag}
 							<span class="tag" style="background-color: {stringColor(tag)}">#{tag}</span>
 						{/each}
 					</li>
