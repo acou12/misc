@@ -18,7 +18,8 @@
 	onMount(() => {
 		loadItems();
 
-		// window.onbeforeunload = () => true;
+		window.onbeforeunload = () => (!$savedSinceLastWrite) ? true : undefined;
+		console.log(window.onbeforeunload)
 	});
 </script>
 

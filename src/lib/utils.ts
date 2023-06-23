@@ -5,7 +5,7 @@ import { get } from 'svelte/store';
 const saveItemsDeb = debounce(() => {
 	localStorage.setItem('items', JSON.stringify(get(items)));
 	savedSinceLastWrite.set(true);
-}, 5 * 1000);
+}, 10 * 1000);
 
 export const saveItems = () => {
 	savedSinceLastWrite.set(false);
