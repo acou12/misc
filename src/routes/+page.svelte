@@ -15,11 +15,12 @@
 	let bits: number[] = [];
 
 	const draw = () => {
-		requestAnimationFrame(draw);
-		const x = new Date();
+		// requestAnimationFrame(draw);
+		const x = new Date(1963, 11, 22, 12, 30, 30);
 		// const last = new Date(x.getFullYear(), 11, 31, 12, 59);
 		const newYears = new Date(x.getFullYear(), 0, 1);
-		let n = Math.round(((x.getTime() - newYears.getTime()) / 1000) * modifier);
+		let n = 0;
+		for (let i = 0; i < 25; i++) { if (Math.random() < 0.5) n += 1 << i; }
 		bits = nToBits(n);
 	};
 
