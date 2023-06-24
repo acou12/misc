@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import TagSet from '$lib/components/TagSet.svelte';
 	import { items } from '$lib/store.js';
 	import { download, saveItems } from '$lib/utils.js';
@@ -18,18 +19,18 @@
 	};
 
 	const deleteMe = () => {
-		$items = $items.filter(other => other.id !== item.id)
-		saveItems()
-		goto('/')
-	}
+		$items = $items.filter((other) => other.id !== item.id);
+		saveItems();
+		goto(`${base}/`);
+	};
 
 	const bottom = () => {
-		$items = [...$items.filter(other => other.id !== item.id), item]
-	}
+		$items = [...$items.filter((other) => other.id !== item.id), item];
+	};
 
 	const downloadMe = () => {
-		download(`${item.text}.txt`, `${item.content}\n\n${item.tags.join(", ")}`)
-	}
+		download(`${item.text}.txt`, `${item.content}\n\n${item.tags.join(', ')}`);
+	};
 </script>
 
 <div class="center">

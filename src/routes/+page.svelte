@@ -5,6 +5,7 @@
 	import { items, contexts } from '$lib/store';
 	import TagSet from '$lib/components/TagSet.svelte';
 	import { download, saveItems } from '$lib/utils';
+	import { base } from '$app/paths';
 
 	let input: string = '';
 
@@ -77,7 +78,7 @@
 	{#if parseResult.type === InputType.CREATE || parseResult.type === InputType.CONTEXT || parseResult.type === InputType.SEARCH || parseResult.type === InputType.NOOP}
 		<ul class="items">
 			{#each filteredItems as item}
-				<a href="/note/{item.id}">
+				<a href="{base}/note/{item.id}">
 					<li class="item">
 						{item.text}
 						{#each item.tags.filter((tag) => !$contexts.includes(tag)) as tag}
