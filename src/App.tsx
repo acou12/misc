@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import "./App.css";
 // @ts-ignore
 import { scrypt, syncScrypt } from "./scrypt.js";
@@ -14,6 +14,7 @@ type Password = {
 
 enum PasswordState {
   WAITING,
+  CHECKING,
   READY,
   CORRECT,
   INCORRECT,
@@ -99,8 +100,12 @@ const CreateNewForm = (props: {
 
 const VerifyForm = (props: {
   passwords: Password[];
+  passwordStates: PasswordState[];
   site: string;
-  setPasswords: (passwords: Password[]) => void;
+  setPasswords: (update: (passwords: Password[]) => Password[]) => void;
+  setPasswordStates: (
+    update: (passwordStates: PasswordState[]) => PasswordState[]
+  ) => void;
 }) => {
   let [inputPassword, setInputPassword] = useState("");
 
@@ -120,10 +125,17 @@ const VerifyForm = (props: {
           e.preventDefault();
           if (password === undefined) {
           } else {
+            props.setPasswordStates((oldPasswordStates) =>
+              oldPasswordStates.map((oldState, i) =>
+                props.passwords[i].site === props.site
+                  ? PasswordState.CHECKING
+                  : oldState
+              )
+            );
             const inHash = await myScrypt(inputPassword, password.salt);
             if (hashesEqual(password.hash, inHash)) {
-              props.setPasswords(
-                props.passwords.map((password) =>
+              props.setPasswords((oldPasswords) =>
+                oldPasswords.map((password) =>
                   password.site === props.site
                     ? {
                         ...password,
@@ -133,9 +145,16 @@ const VerifyForm = (props: {
                     : { ...password }
                 )
               );
+              props.setPasswordStates((oldPasswordStates) =>
+                oldPasswordStates.map((oldState, i) =>
+                  props.passwords[i].site === props.site
+                    ? PasswordState.CORRECT
+                    : oldState
+                )
+              );
             } else {
-              props.setPasswords(
-                props.passwords.map((password) =>
+              props.setPasswords((oldPasswords) =>
+                oldPasswords.map((password) =>
                   password.site === props.site
                     ? {
                         ...password,
@@ -143,6 +162,13 @@ const VerifyForm = (props: {
                         numGuesses: 0,
                       }
                     : { ...password }
+                )
+              );
+              props.setPasswordStates((oldPasswordStates) =>
+                oldPasswordStates.map((oldState, i) =>
+                  props.passwords[i].site === props.site
+                    ? PasswordState.INCORRECT
+                    : oldState
                 )
               );
             }
@@ -166,6 +192,8 @@ const VerifyForm = (props: {
 const optClasses = (...arr: [boolean, string][]) =>
   arr.flatMap(([condition, cls]) => (condition ? [cls] : [])).join(" ");
 
+const zip = <A, B>(as: A[], bs: B[]): [A, B][] => as.map((a, i) => [a, bs[i]]);
+
 const sortedBy = <T,>(arr: T[], fn: (t: T) => number) => {
   const copy = [...arr];
   return copy.sort((a, b) => fn(a) - fn(b));
@@ -176,36 +204,83 @@ const App = () => {
   let [passwordStates, setPasswordStates] = useState([] as PasswordState[]);
   let [currentTime, setCurrentTime] = useState(Date.now());
 
-  const overdue = (password: Password): number =>
-    currentTime -
-    password.lastGuess -
-    (password.numGuesses === 0
-      ? 0
-      : (Math.floor(Math.pow(1.5, password.numGuesses - 1)) * 24 - 8) *
-        1000 *
-        60 *
-        60);
+  const setAndSavePasswords = (
+    update: (passwords: Password[]) => Password[]
+  ) => {
+    setPasswords(update);
+    save(update(passwords));
+  };
 
-  let sortedPasswords = sortedBy(passwords, (password) => -overdue(password));
-  let activePassword = sortedPasswords.find(
-    (password) => overdue(password) > 0
+  const overdue = (password: Password): number =>
+    currentTime - password.lastGuess - password.numGuesses * 10_000;
+
+  let sortedPasswordsAndStates = sortedBy(
+    zip(passwords, passwordStates),
+    ([password, _state]) => -overdue(password)
   );
+
+  let activePassword = sortedPasswordsAndStates.find(
+    ([password, state]) =>
+      overdue(password) > 0 && state !== PasswordState.CHECKING
+  );
+
+  // const overdue = (password: Password): number =>
+  //   currentTime -
+  //   password.lastGuess -
+  //   (password.numGuesses === 0
+  //     ? 0
+  //     : (Math.floor(Math.pow(1.5, password.numGuesses - 1)) * 24 - 8) *
+  //       1000 *
+  //       60 *
+  //       60);
 
   useEffect(() => {
     if (!initialized) {
       initialized = true;
+      let newPasswords: Password[];
       let storedPasswords = localStorage.getItem("passwords");
       if (storedPasswords !== null) {
-        setPasswords(JSON.parse(storedPasswords) as Password[]);
+        newPasswords = JSON.parse(storedPasswords) as Password[];
+      } else {
+        newPasswords = [];
       }
+      setPasswords(newPasswords);
+      setPasswordStates(
+        newPasswords.map((password) =>
+          overdue(password) > 0 ? PasswordState.READY : PasswordState.WAITING
+        )
+      );
     }
 
     const timer = setInterval(() => {
-      setCurrentTime(Date.now());
+      const newCurrentTime = Date.now();
+      setCurrentTime(newCurrentTime);
+
+      setPasswordStates(
+        passwordStates.map((oldState, i) => {
+          const password = passwords[i];
+          switch (oldState) {
+            case PasswordState.CORRECT:
+              return overdue(password) > 0
+                ? PasswordState.READY
+                : PasswordState.CORRECT;
+            case PasswordState.INCORRECT:
+              return PasswordState.INCORRECT;
+            case PasswordState.READY:
+              return PasswordState.READY;
+            case PasswordState.WAITING:
+              return overdue(password) > 0
+                ? PasswordState.READY
+                : PasswordState.WAITING;
+            case PasswordState.CHECKING:
+              return PasswordState.CHECKING;
+          }
+        })
+      );
     }, 200);
 
     return () => clearInterval(timer);
-  }, [setCurrentTime]);
+  }, [setCurrentTime, passwords, passwordStates, setPasswordStates]);
 
   return (
     <>
@@ -214,39 +289,34 @@ const App = () => {
           const newPasswords = [...passwords, newPassword];
           setPasswords(newPasswords);
           save(newPasswords);
+
+          setPasswordStates([...passwordStates, PasswordState.WAITING]);
         }}
       />
-      {passwords.map(({ site, lastGuess, numGuesses }) => (
-        <div key={site}>
-          {/* {site} - {String.fromCharCode(...hash)} with salt{" "}
-          {String.fromCharCode(...salt)} */}
-          {site} - {lastGuess} - {numGuesses}
-        </div>
-      ))}
-      {sortedPasswords.map((password, i) => (
-        // overdue(password) > 0 && (
-        // )
-        <>
-          <p
-            className={optClasses(
-              [i === 0, "active"],
-              [overdue(password) < 0, "done"]
-            )}
-          >
-            {password.site} - {overdue(password)}
-            {optClasses([i === 0, "active"], [overdue(password) < 0, "done"])}
-          </p>
-        </>
-      ))}
-      {activePassword !== undefined && (
+      {sortedPasswordsAndStates.map(
+        ([{ site, lastGuess, numGuesses }, state], i) => (
+          <React.Fragment key={site}>
+            <div
+              className={
+                ["waiting", "checking", "ready", "correct", "incorrect"][state]
+              }
+            >
+              {site} - {lastGuess} - {numGuesses} - {state}
+            </div>
+          </React.Fragment>
+        )
+      )}
+      {activePassword !== undefined ? (
         <VerifyForm
+          passwordStates={passwordStates}
           passwords={passwords}
-          site={activePassword.site}
-          setPasswords={(newPasswords) => {
-            setPasswords(newPasswords);
-            save(newPasswords);
-          }}
-        />
+          setPasswordStates={setPasswordStates}
+          setPasswords={setAndSavePasswords}
+          site={activePassword[0].site}
+          key={activePassword[0].site}
+        ></VerifyForm>
+      ) : (
+        <p>all caught up!</p>
       )}
     </>
   );

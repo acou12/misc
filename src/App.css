@@ -1,3 +1,25 @@
-.done {
+body,
+input {
+  background-color: black;
+  color: white;
+}
+
+.waiting {
   color: gray;
+}
+
+.ready {
+  color: #d7d700;
+}
+
+.checking {
+  color: blue;
+}
+
+.correct {
+  color: green;
+}
+
+.incorrect {
+  color: red;
 }
