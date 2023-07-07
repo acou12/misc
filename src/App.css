@@ -1,25 +1,61 @@
-body,
+body {
+  background-color: black;
+  color: white;
+}
+
 input {
   background-color: black;
   color: white;
+}
+
+input:disabled {
+  background-color: gray;
 }
 
 .waiting {
   color: gray;
 }
 
+.waiting::before {
+  content: "✓";
+}
+
 .ready {
   color: #d7d700;
+}
+
+.ready::before {
+  content: "!";
 }
 
 .checking {
   color: blue;
 }
 
+.checking::before {
+  content: "…";
+}
+
 .correct {
   color: green;
 }
 
+.correct::before {
+  content: "✓";
+}
+
 .incorrect {
   color: red;
+}
+
+.incorrect::before {
+  content: "x";
+}
+
+.active {
+  text-decoration: underline;
+}
+
+*::before {
+  margin-right: 5px;
 }

@@ -1,8 +1,13 @@
 import React, { ReactNode, useEffect, useState } from "react";
 import "./App.css";
-// @ts-ignore
-import { scrypt, syncScrypt } from "./scrypt.js";
-
+import {
+  hashesEqual,
+  myScrypt,
+  optClasses,
+  randomSalt,
+  sortedBy,
+  zip,
+} from "./util";
 type Password = {
   site: string;
   hash: number[];
@@ -24,27 +29,6 @@ const save = (passwords: Password[]) => {
   console.log(passwords);
   localStorage.setItem("passwords", JSON.stringify(passwords));
 };
-
-const stringToNumArray = (s: string) => {
-  return s.split("").map((c) => c.charCodeAt(0));
-};
-
-const randomSalt = (length: number) => {
-  let res = [];
-  for (let i = 0; i < length; i++) {
-    res.push(Math.floor(Math.random() * 256));
-  }
-  return res;
-};
-
-const hashesEqual = (arr1: number[], arr2: number[]): boolean => {
-  if (arr1.length !== arr2.length) return false;
-  for (let i = 0; i < arr1.length; i++) {
-    if (arr1[i] !== arr2[i]) return false;
-  }
-  return true;
-};
-
 let initialized = false;
 
 const CreateNewForm = (props: {
@@ -52,11 +36,7 @@ const CreateNewForm = (props: {
 }) => {
   let [inputSite, setInputSite] = useState("");
   let [inputPassword, setInputPassword] = useState("");
-
-  const myScrypt = (password: string, salt: number[]) =>
-    scrypt(stringToNumArray(password), salt, Math.pow(2, 15), 1, 1, 100).then(
-      Array.from
-    );
+  let [enabled, setEnabled] = useState(true);
 
   return (
     <>
@@ -65,7 +45,9 @@ const CreateNewForm = (props: {
           e.preventDefault();
 
           const salt = randomSalt(32);
+          setEnabled(false);
           const hash = await myScrypt(inputPassword, salt);
+          setEnabled(true);
           const newPassword: Password = {
             site: inputSite,
             hash,
@@ -85,14 +67,16 @@ const CreateNewForm = (props: {
           placeholder="Site"
           value={inputSite}
           onChange={(e) => setInputSite(e.currentTarget.value)}
+          disabled={!enabled}
         />
         <input
           type="text"
           placeholder="Password"
           value={inputPassword}
           onChange={(e) => setInputPassword(e.currentTarget.value)}
+          disabled={!enabled}
         />
-        <input type="submit" value="add" />
+        <input type="submit" value="add" disabled={!enabled} />
       </form>
     </>
   );
@@ -112,11 +96,6 @@ const VerifyForm = (props: {
   let password = props.passwords.find(
     (password) => password.site === props.site
   )!;
-
-  const myScrypt = (password: string, salt: number[]) =>
-    scrypt(stringToNumArray(password), salt, Math.pow(2, 15), 1, 1, 100).then(
-      Array.from
-    );
 
   return (
     <>
@@ -172,7 +151,7 @@ const VerifyForm = (props: {
                 )
               );
             }
-            setInputPassword("");
+            // setInputPassword("");
           }
         }}
       >
@@ -182,21 +161,12 @@ const VerifyForm = (props: {
           placeholder="Password"
           value={inputPassword}
           onChange={(e) => setInputPassword(e.currentTarget.value)}
+          autoFocus={true}
         />
         <input type="submit" value="check" />
       </form>
     </>
   );
-};
-
-const optClasses = (...arr: [boolean, string][]) =>
-  arr.flatMap(([condition, cls]) => (condition ? [cls] : [])).join(" ");
-
-const zip = <A, B>(as: A[], bs: B[]): [A, B][] => as.map((a, i) => [a, bs[i]]);
-
-const sortedBy = <T,>(arr: T[], fn: (t: T) => number) => {
-  const copy = [...arr];
-  return copy.sort((a, b) => fn(a) - fn(b));
 };
 
 const App = () => {
@@ -212,7 +182,17 @@ const App = () => {
   };
 
   const overdue = (password: Password): number =>
-    currentTime - password.lastGuess - password.numGuesses * 10_000;
+    currentTime -
+    password.lastGuess -
+    (password.numGuesses === 0
+      ? 0
+      : (Math.floor(Math.pow(1.5, password.numGuesses - 1)) * 24 - 8) *
+        1000 *
+        60 *
+        60);
+
+  // const overdue = (password: Password): number =>
+  //   currentTime - password.lastGuess - password.numGuesses * 10_000;
 
   let sortedPasswordsAndStates = sortedBy(
     zip(passwords, passwordStates),
@@ -223,16 +203,6 @@ const App = () => {
     ([password, state]) =>
       overdue(password) > 0 && state !== PasswordState.CHECKING
   );
-
-  // const overdue = (password: Password): number =>
-  //   currentTime -
-  //   password.lastGuess -
-  //   (password.numGuesses === 0
-  //     ? 0
-  //     : (Math.floor(Math.pow(1.5, password.numGuesses - 1)) * 24 - 8) *
-  //       1000 *
-  //       60 *
-  //       60);
 
   useEffect(() => {
     if (!initialized) {
@@ -293,19 +263,21 @@ const App = () => {
           setPasswordStates([...passwordStates, PasswordState.WAITING]);
         }}
       />
-      {sortedPasswordsAndStates.map(
-        ([{ site, lastGuess, numGuesses }, state], i) => (
-          <React.Fragment key={site}>
-            <div
-              className={
-                ["waiting", "checking", "ready", "correct", "incorrect"][state]
-              }
-            >
-              {site} - {lastGuess} - {numGuesses} - {state}
-            </div>
-          </React.Fragment>
-        )
-      )}
+      {sortedPasswordsAndStates.map(([{ site }, state]) => (
+        <div
+          key={site}
+          className={
+            ["waiting", "checking", "ready", "correct", "incorrect"][state] +
+            " " +
+            optClasses([
+              activePassword !== undefined && site === activePassword[0].site,
+              "active",
+            ])
+          }
+        >
+          {site}
+        </div>
+      ))}
       {activePassword !== undefined ? (
         <VerifyForm
           passwordStates={passwordStates}
