@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { debounce } from 'debounce';
+
 	import { onMount } from 'svelte';
 
 	import youTubePlayer from 'youtube-player';
@@ -11,60 +13,62 @@
 	let duration: number = 0;
 	let playing = false;
 
-	let songs: Song[] = [
-		{
-			id: 'k6jqx9kZgPM',
-			name: 'Talk that Talk',
-			artist: '트와이스',
-			img: 'talk.webp'
-		},
-		{
-			id: '2IA7QExh-NQ',
-			name: "Ain't It Fun",
-			artist: 'Paramore',
-			img: 'fun.webp'
-		},
-		{
-			id: 'qICsQ8lT4Ko',
-			name: 'Song for Dan Treacy',
-			artist: 'MGMT',
-			img: 'congrats.webp'
-		},
-		{
-			id: 'iIH-yP-35cc',
-			name: 'American Teen',
-			artist: 'Khalid',
-			img: 'teen.webp'
-		},
-		{
-			id: 'LUjGtyYEi90',
-			name: 'Weird Fishes / Arpeggi',
-			artist: 'Radiohead',
-			img: 'fishes.webp'
-		},
-		{
-			id: 'UxzSGMYogow',
-			name: 'Fxmldr',
-			artist: 'Thank You Scientist',
-			img: 'fxmldr.webp'
-		},
-		{
-			id: 'z7q9W2PNhJ4',
-			name: 'Elephant',
-			artist: 'Tame Impala',
-			img: 'elephant.webp'
-		}
-		// {
-		// 	id: 'or die',
-		// 	name: 'Select Farm',
-		// 	artist: 'Please'
-		// },
-		// {
-		// 	id: 'dsaffff',
-		// 	name: 'J Berry',
-		// 	artist: 'J Berry'
-		// }
-	];
+	// let defaultSongs: Song[] = [
+	// 	{
+	// 		id: 'k6jqx9kZgPM',
+	// 		name: 'Talk that Talk',
+	// 		artist: '트와이스',
+	// 		img: 'talk.webp'
+	// 	},
+	// 	{
+	// 		id: '2IA7QExh-NQ',
+	// 		name: "Ain't It Fun",
+	// 		artist: 'Paramore',
+	// 		img: 'fun.webp'
+	// 	},
+	// 	{
+	// 		id: 'qICsQ8lT4Ko',
+	// 		name: 'Song for Dan Treacy',
+	// 		artist: 'MGMT',
+	// 		img: 'congrats.webp'
+	// 	},
+	// 	{
+	// 		id: 'iIH-yP-35cc',
+	// 		name: 'American Teen',
+	// 		artist: 'Khalid',
+	// 		img: 'teen.webp'
+	// 	},
+	// 	{
+	// 		id: 'LUjGtyYEi90',
+	// 		name: 'Weird Fishes / Arpeggi',
+	// 		artist: 'Radiohead',
+	// 		img: 'fishes.webp'
+	// 	},
+	// 	{
+	// 		id: 'UxzSGMYogow',
+	// 		name: 'Fxmldr',
+	// 		artist: 'Thank You Scientist',
+	// 		img: 'fxmldr.webp'
+	// 	},
+	// 	{
+	// 		id: 'z7q9W2PNhJ4',
+	// 		name: 'Elephant',
+	// 		artist: 'Tame Impala',
+	// 		img: 'elephant.webp'
+	// 	}
+	// 	// {
+	// 	// 	id: 'or die',
+	// 	// 	name: 'Select Farm',
+	// 	// 	artist: 'Please'
+	// 	// },
+	// 	// {
+	// 	// 	id: 'dsaffff',
+	// 	// 	name: 'J Berry',
+	// 	// 	artist: 'J Berry'
+	// 	// }
+	// ];
+
+	let songs: Song[] = [];
 
 	let positionMap: Record<string, Position> = Object.assign(
 		{},
@@ -77,17 +81,40 @@
 	let panning = false;
 
 	const randomizeConnections = () => {
-		let tempSongs = [...songs];
-		let randomizedSongs = [];
+		let remainingSongs = [...songs];
+		let resultOrder = [];
 
-		while (tempSongs.length > 0) {
-			let index = Math.floor(Math.random() * tempSongs.length);
-			randomizedSongs.push(tempSongs[index]);
-			tempSongs.splice(index, 1);
-		}
+		if (remainingSongs.length > 0) {
+			let currentSong = remainingSongs[Math.floor(Math.random() * remainingSongs.length)];
+			let currentPosition = positionMap[currentSong.id];
+			resultOrder.push(currentSong);
+			remainingSongs.splice(remainingSongs.indexOf(currentSong), 1);
 
-		for (let i = 0; i < randomizedSongs.length - 1; i++) {
-			connections = [...connections, [randomizedSongs[i].id, randomizedSongs[i + 1].id]];
+			while (remainingSongs.length > 0) {
+				let minIndex = 0;
+				let minDistance = Infinity;
+				for (let i = 0; i < remainingSongs.length; i++) {
+					const otherSong = remainingSongs[i];
+					const otherPosition = positionMap[otherSong.id];
+					const distance = Math.hypot(
+						otherPosition.x - currentPosition.x,
+						otherPosition.y - currentPosition.y
+					);
+					if (distance < minDistance) {
+						minDistance = distance;
+						minIndex = i;
+					}
+				}
+				currentSong = remainingSongs.splice(minIndex, 1)[0];
+				currentPosition = positionMap[currentSong.id];
+				resultOrder.push(currentSong);
+			}
+
+			connections = [];
+
+			for (let i = 0; i < resultOrder.length - 1; i++) {
+				connections = [...connections, [resultOrder[i].id, resultOrder[i + 1].id]];
+			}
 		}
 	};
 
@@ -106,12 +133,20 @@
 			}
 		});
 
+		const savedSongs = localStorage.getItem('songs');
+		if (savedSongs == null) {
+			songs = [];
+			localStorage.setItem('songs', JSON.stringify(songs));
+		} else {
+			songs = JSON.parse(savedSongs);
+		}
+
 		let newPositionMap: typeof positionMap = {};
 
 		for (const song of songs) {
 			newPositionMap[song.id] = {
-				x: Math.random() * 800,
-				y: Math.random() * 800
+				x: Math.random() * 2000,
+				y: Math.random() * 2000
 			};
 		}
 
@@ -194,6 +229,27 @@
 		const secondsDisplay = seconds < 10 ? `0${seconds}` : `${seconds}`;
 		return `${minutes}:${secondsDisplay}`;
 	};
+
+	type ItunesSong = {
+		artistName: string;
+		collectionName: string;
+		trackName: string;
+		trackViewUrl: string;
+		artworkUrl100: string;
+	};
+
+	let newSongInput = '';
+	let searchSongs: ItunesSong[] = [];
+
+	const debouncedSearchSongs = debounce(async () => {
+		const itunesData = (await fetch(
+			`https://itunes.apple.com/search?term=${encodeURI(newSongInput)}&country=US&entity=song`
+		).then((it) => it.json())) as {
+			results: ItunesSong[];
+		};
+
+		searchSongs = itunesData.results;
+	}, 500);
 </script>
 
 <div id="player" />
@@ -212,6 +268,47 @@
 		</button>
 	</div>
 {/each}
+
+Add song:
+<form
+	on:submit|preventDefault={async () => {
+		const data = await (await fetch(`/search?search=${newSongInput}`)).json();
+		songs = [
+			...songs,
+			{
+				id: data.id,
+				name: data.data.trackName,
+				artist: data.data.artistName,
+				img: data.data.artworkUrl100
+			}
+		];
+		localStorage.setItem('songs', JSON.stringify(songs));
+		positionMap[data.id] = {
+			x: 0,
+			y: 0
+		};
+		newSongInput = '';
+	}}
+>
+	<input type="text" bind:value={newSongInput} on:input={debouncedSearchSongs} />
+</form>
+<ul>
+	{#each searchSongs as searchSong}
+		<li
+			on:click={async () => {
+				fetch(
+					`https://api.song.link/v1-alpha.1/links?url=${encodeURI(
+						searchSong.trackViewUrl
+					)}&userCountry=US&songIfSingle=true`
+				)
+					.then((it) => it.json())
+					.then((it) => alert(JSON.stringify(it)));
+			}}
+		>
+			{searchSong.artistName} - {searchSong.trackName} - {searchSong.trackViewUrl}
+		</li>
+	{/each}
+</ul>
 
 <p>
 	{prettySeconds(progress)} / {prettySeconds(duration)}

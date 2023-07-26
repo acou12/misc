@@ -21,15 +21,18 @@
 </script>
 
 {#each connections as connection, i}
-	<div
-		class="connection"
-		style="transform: translate({positionMap[connection[0]].x + 100}px, {positionMap[connection[0]]
-			.y + 100}px) rotate({angle(connection, positionMap)}rad); width: {distance(
-			connection,
-			positionMap
-		)}px; animation-delay: {i * 0.1 + 1}s;"
-		out:fade={{ duration: 200 }}
-	/>
+	<div class="connection-wrap">
+		<div
+			class="connection"
+			style="transform: translate({positionMap[connection[0]].x + 100}px, {positionMap[
+				connection[0]
+			].y + 100}px) rotate({angle(connection, positionMap)}rad); width: {distance(
+				connection,
+				positionMap
+			)}px; animation-delay: {i * 0.1}s;"
+			out:fade={{ duration: 200 }}
+		/>
+	</div>
 {/each}
 {#each songs as song}
 	<img
@@ -46,10 +49,12 @@
 	@keyframes fadein {
 		from {
 			opacity: 0;
+			/* transform: scaleX(0); */
 		}
 
 		to {
 			opacity: 1;
+			/* transform: scaleX(1); */
 		}
 	}
 
@@ -59,7 +64,7 @@
 		color: white;
 		touch-action: none;
 		user-select: none;
-		border-radius: 100%;
+		border-radius: 30px;
 		width: 200px;
 		height: 200px;
 		transition: outline 0.2s;
