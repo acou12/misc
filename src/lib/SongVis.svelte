@@ -1,19 +1,19 @@
 <script lang="ts">
-	import type { Position, Song } from './song';
+	import type { Entity, Position, Song } from './song';
 	import { fade } from 'svelte/transition';
 
-	export let songs: Song[];
-	export let positionMap: Record<string, Position>;
-	export let connections: [string, string][];
-	export let draggingId: string | undefined;
+	export let entities: Entity[];
+	export let positionMap: Record<number, Position>;
+	export let connections: [number, number][];
+	export let draggingId: number | undefined;
 
-	const distance = (connection: [string, string], positionMap: Record<string, Position>) => {
+	const distance = (connection: [number, number], positionMap: Record<number, Position>) => {
 		const p1 = positionMap[connection[0]];
 		const p2 = positionMap[connection[1]];
 		return Math.hypot(p1.x - p2.x, p1.y - p2.y);
 	};
 
-	const angle = (connection: [string, string], positionMap: Record<string, Position>) => {
+	const angle = (connection: [number, number], positionMap: Record<number, Position>) => {
 		const p1 = positionMap[connection[0]];
 		const p2 = positionMap[connection[1]];
 		return Math.atan2(p2.y - p1.y, p2.x - p1.x);
@@ -29,19 +29,21 @@
 			].y + 100}px) rotate({angle(connection, positionMap)}rad); width: {distance(
 				connection,
 				positionMap
-			)}px; animation-delay: {i * 0.1}s;"
+			)}px; animation-delay: {i * 0.02}s;"
 			out:fade={{ duration: 200 }}
 		/>
 	</div>
 {/each}
-{#each songs as song}
+{#each entities as entity}
 	<img
-		src={song.img}
-		alt="{song.artist} - {song.name}"
+		src={entity.entity.artworkUrl100}
+		alt="{entity.entity.artistName} - {entity.entity.wrapperType === 'track'
+			? entity.entity.trackName
+			: entity.entity.collectionName}"
 		draggable="false"
 		class="song"
-		style="transform: translate({positionMap[song.id].x}px, {positionMap[song.id].y}px); "
-		class:selected={draggingId === song.id}
+		style="transform: translate({positionMap[entity.id].x}px, {positionMap[entity.id].y}px); "
+		class:selected={draggingId === entity.id}
 	/>
 {/each}
 

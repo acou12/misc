@@ -5,7 +5,7 @@
 
 	import youTubePlayer from 'youtube-player';
 	import type { YouTubePlayer } from 'youtube-player/dist/types';
-	import type { Position, Song } from '$lib/song';
+	import type { Entity, Position, Song, ItunesEntity } from '$lib/song';
 	import SongVis from '$lib/SongVis.svelte';
 
 	let player: YouTubePlayer;
@@ -68,33 +68,33 @@
 	// 	// }
 	// ];
 
-	let songs: Song[] = [];
+	let entities: Entity[] = [];
 
-	let positionMap: Record<string, Position> = Object.assign(
+	let positionMap: Record<number, Position> = Object.assign(
 		{},
-		...songs.map((song) => ({ [song.id]: { x: 0, y: 0 } }))
+		...entities.map((entity) => ({ [entity.id]: { x: 0, y: 0 } }))
 	);
 
-	let connections: [string, string][] = [];
+	let connections: [number, number][] = [];
 
-	let selectedSongIndex = 0;
+	let selectedEntityIndex = 0;
 	let panning = false;
 
 	const randomizeConnections = () => {
-		let remainingSongs = [...songs];
+		let remainingEntities = [...entities];
 		let resultOrder = [];
 
-		if (remainingSongs.length > 0) {
-			let currentSong = remainingSongs[Math.floor(Math.random() * remainingSongs.length)];
-			let currentPosition = positionMap[currentSong.id];
-			resultOrder.push(currentSong);
-			remainingSongs.splice(remainingSongs.indexOf(currentSong), 1);
+		if (remainingEntities.length > 0) {
+			let currentEntities = remainingEntities[Math.floor(Math.random() * remainingEntities.length)];
+			let currentPosition = positionMap[currentEntities.id];
+			resultOrder.push(currentEntities);
+			remainingEntities.splice(remainingEntities.indexOf(currentEntities), 1);
 
-			while (remainingSongs.length > 0) {
+			while (remainingEntities.length > 0) {
 				let minIndex = 0;
 				let minDistance = Infinity;
-				for (let i = 0; i < remainingSongs.length; i++) {
-					const otherSong = remainingSongs[i];
+				for (let i = 0; i < remainingEntities.length; i++) {
+					const otherSong = remainingEntities[i];
 					const otherPosition = positionMap[otherSong.id];
 					const distance = Math.hypot(
 						otherPosition.x - currentPosition.x,
@@ -105,9 +105,9 @@
 						minIndex = i;
 					}
 				}
-				currentSong = remainingSongs.splice(minIndex, 1)[0];
-				currentPosition = positionMap[currentSong.id];
-				resultOrder.push(currentSong);
+				currentEntities = remainingEntities.splice(minIndex, 1)[0];
+				currentPosition = positionMap[currentEntities.id];
+				resultOrder.push(currentEntities);
 			}
 
 			connections = [];
@@ -118,7 +118,7 @@
 		}
 	};
 
-	let draggingId: string | undefined = undefined;
+	let draggingId: number | undefined = undefined;
 
 	onMount(() => {
 		player = youTubePlayer('player');
@@ -129,33 +129,61 @@
 		});
 		player.on('stateChange', ({ data }) => {
 			if (data === 0) {
-				setSong((selectedSongIndex + 1) % songs.length);
+				setSong((selectedEntityIndex + 1) % entities.length);
 			}
 		});
 
-		const savedSongs = localStorage.getItem('songs');
-		if (savedSongs == null) {
-			songs = [];
-			localStorage.setItem('songs', JSON.stringify(songs));
+		const savedSongs = localStorage.getItem('entities');
+		if (savedSongs === null) {
+			entities = [];
+			localStorage.setItem('entities', JSON.stringify(entities));
 		} else {
-			songs = JSON.parse(savedSongs);
+			entities = JSON.parse(savedSongs);
 		}
 
-		let newPositionMap: typeof positionMap = {};
+		const savedPositionMap = localStorage.getItem('positionmap');
 
-		for (const song of songs) {
-			newPositionMap[song.id] = {
-				x: Math.random() * 2000,
-				y: Math.random() * 2000
-			};
+		if (savedPositionMap === null) {
+			let newPositionMap: typeof positionMap = {};
+
+			for (const song of entities) {
+				newPositionMap[song.id] = {
+					x: Math.random() * 2000,
+					y: Math.random() * 2000
+				};
+			}
+
+			positionMap = newPositionMap;
+			localStorage.setItem('positionmap', JSON.stringify(positionMap));
+		} else {
+			positionMap = JSON.parse(savedPositionMap);
 		}
 
-		positionMap = newPositionMap;
+		// const center = {
+		// 	x: 0,
+		// 	y: 0
+		// };
+
+		// for (const key in positionMap) {
+		// 	center.x += positionMap[key].x;
+		// 	center.y += positionMap[key].y;
+		// }
+
+		// center.x /= Object.keys(positionMap).length;
+		// center.y /= Object.keys(positionMap).length;
+
+		// for (const entity of entities) {
+		// 	if (positionMap[entity.id].x < 0) {
+		// 		positionMap[entity.id] = { ...center };
+		// 	}
+		// }
+
+		// saveLocations();
 
 		const songsElement = document.querySelector('.songs') as HTMLDivElement;
 
 		document.addEventListener('mousedown', (e) => {
-			for (const song of songs) {
+			for (const song of entities) {
 				const position = positionMap[song.id];
 				const clickX = e.clientX - songsElement.getBoundingClientRect().left;
 				const clickY = e.clientY - songsElement.getBoundingClientRect().top;
@@ -189,18 +217,23 @@
 			if (draggingId !== undefined) {
 				positionMap[draggingId].x += e.movementX;
 				positionMap[draggingId].y += e.movementY;
+				debouncedSaveLocations();
 			} else if (panning) {
-				for (const song of songs) {
+				for (const song of entities) {
 					positionMap[song.id].x += e.movementX;
 					positionMap[song.id].y += e.movementY;
+					debouncedSaveLocations();
 				}
 			}
 		});
 	});
 
 	const setSong = (index: number) => {
-		selectedSongIndex = index;
-		player.loadVideoById(songs[selectedSongIndex].id);
+		selectedEntityIndex = index;
+		const selectedEntity = entities[selectedEntityIndex];
+		player.loadVideoById(
+			selectedEntity.type === 'song' ? selectedEntity.youtubeId : selectedEntity.songs[0].youtubeId
+		);
 		playing = true;
 
 		const interval = setInterval(() => {
@@ -230,32 +263,95 @@
 		return `${minutes}:${secondsDisplay}`;
 	};
 
-	type ItunesSong = {
-		artistName: string;
-		collectionName: string;
-		trackName: string;
-		trackViewUrl: string;
-		artworkUrl100: string;
-	};
-
 	let newSongInput = '';
-	let searchSongs: ItunesSong[] = [];
+	let searchEntities: ItunesEntity[] = [];
 
 	const debouncedSearchSongs = debounce(async () => {
 		const itunesData = (await fetch(
-			`https://itunes.apple.com/search?term=${encodeURI(newSongInput)}&country=US&entity=song`
+			`https://itunes.apple.com/search?term=${encodeURI(newSongInput)}&country=US&entity=song,album`
 		).then((it) => it.json())) as {
-			results: ItunesSong[];
+			results: ItunesEntity[];
 		};
 
-		searchSongs = itunesData.results;
+		searchEntities = itunesData.results;
 	}, 500);
+
+	const saveLocations = () => {
+		localStorage.setItem('positionmap', JSON.stringify(positionMap));
+	};
+
+	const debouncedSaveLocations = debounce(saveLocations, 5000);
+
+	const addEntity = (entity: Entity) => {
+		entities = [...entities, entity];
+		localStorage.setItem('entities', JSON.stringify(entities));
+		positionMap[entity.id] = {
+			x: Math.random() * 1600,
+			y: Math.random() * 1600
+		};
+		saveLocations();
+	};
+
+	const getYoutubeIdFromTrackUrl = async (trackViewUrl: string): Promise<string> => {
+		const data = await fetch(
+			`https://api.song.link/v1-alpha.1/links?url=${encodeURI(
+				trackViewUrl
+			)}&userCountry=US&songIfSingle=true`
+		).then((it) => it.json());
+		const id: string = data.linksByPlatform['youtube'].entityUniqueId.split('::')[1];
+		return id;
+	};
+
+	const addItunesEntity = async (searchEntity: ItunesEntity) => {
+		newSongInput = '';
+		searchEntities = [];
+		let entity: Entity;
+		if (searchEntity.wrapperType === 'track') {
+			const youtubeId = await getYoutubeIdFromTrackUrl(searchEntity.trackViewUrl);
+			entity = {
+				type: 'song',
+				id: searchEntity.trackId,
+				youtubeId,
+				entity: searchEntity
+			};
+		} else {
+			// (searchSong.wrapperType === 'album')
+			const songs: Song[] = [];
+
+			const data = (await fetch(
+				`https://itunes.apple.com/lookup?id=${searchEntity.collectionId}&entity=song`
+			).then((it) => it.json())) as { results: ItunesEntity[] };
+
+			let total = data.results.length;
+			let i = 0;
+
+			for (let itunesEntity of data.results) {
+				if (itunesEntity.wrapperType === 'track') {
+					const song: Song = {
+						id: itunesEntity.trackId,
+						youtubeId: await getYoutubeIdFromTrackUrl(itunesEntity.trackViewUrl)
+					};
+					i++;
+					console.log(`${searchEntity.collectionName}: ${i} / ${total}`);
+					songs.push(song);
+				}
+			}
+
+			entity = {
+				type: 'album',
+				id: searchEntity.collectionId,
+				entity: searchEntity,
+				songs
+			};
+		}
+		addEntity(entity);
+	};
 </script>
 
 <div id="player" />
 
-{#each songs as song, i}
-	<div class="song" class:playing={i === selectedSongIndex}>
+{#each entities as song, i}
+	<div class="song" class:playing={i === selectedEntityIndex}>
 		<button
 			on:click={() => {
 				setSong(i);
@@ -264,48 +360,25 @@
 				setSong(i);
 			}}
 		>
-			{song.artist} - {song.name}
+			{song.entity.wrapperType === 'track' ? song.entity.trackName : song.entity.collectionName} - {song
+				.entity.artistName}
 		</button>
 	</div>
 {/each}
 
 Add song:
-<form
-	on:submit|preventDefault={async () => {
-		const data = await (await fetch(`/search?search=${newSongInput}`)).json();
-		songs = [
-			...songs,
-			{
-				id: data.id,
-				name: data.data.trackName,
-				artist: data.data.artistName,
-				img: data.data.artworkUrl100
-			}
-		];
-		localStorage.setItem('songs', JSON.stringify(songs));
-		positionMap[data.id] = {
-			x: 0,
-			y: 0
-		};
-		newSongInput = '';
-	}}
->
+<form>
 	<input type="text" bind:value={newSongInput} on:input={debouncedSearchSongs} />
 </form>
 <ul>
-	{#each searchSongs as searchSong}
+	{#each searchEntities as searchEntity}
 		<li
-			on:click={async () => {
-				fetch(
-					`https://api.song.link/v1-alpha.1/links?url=${encodeURI(
-						searchSong.trackViewUrl
-					)}&userCountry=US&songIfSingle=true`
-				)
-					.then((it) => it.json())
-					.then((it) => alert(JSON.stringify(it)));
-			}}
+			on:click={() => addItunesEntity(searchEntity)}
+			on:keydown={() => addItunesEntity(searchEntity)}
 		>
-			{searchSong.artistName} - {searchSong.trackName} - {searchSong.trackViewUrl}
+			{searchEntity.artistName} - {searchEntity.wrapperType === 'track'
+				? searchEntity.trackName
+				: searchEntity.collectionName} - {searchEntity.wrapperType}
 		</li>
 	{/each}
 </ul>
@@ -318,7 +391,7 @@ Add song:
 </p>
 
 <div class="songs">
-	<SongVis {songs} {positionMap} {connections} {draggingId} />
+	<SongVis {entities} {positionMap} {connections} {draggingId} />
 </div>
 
 <style>
