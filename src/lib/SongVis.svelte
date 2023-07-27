@@ -24,9 +24,8 @@
 	<div class="connection-wrap">
 		<div
 			class="connection"
-			style="transform: translate({positionMap[connection[0]].x + 100}px, {positionMap[
-				connection[0]
-			].y + 100}px) rotate({angle(connection, positionMap)}rad); width: {distance(
+			style="transform: translate({positionMap[connection[0]].x}px, {positionMap[connection[0]]
+				.y}px) rotate({angle(connection, positionMap)}rad); width: {distance(
 				connection,
 				positionMap
 			)}px; animation-delay: {i * 0.02}s;"
@@ -42,7 +41,9 @@
 		class="entity"
 		class:song={entity.type === 'song'}
 		class:album={entity.type === 'album'}
-		style="transform: translate({positionMap[entity.id].x}px, {positionMap[entity.id].y}px); "
+		style="transform: translate(calc({positionMap[entity.id].x}px - 50%), calc({positionMap[
+			entity.id
+		].y}px - 50%)); "
 		class:selected={draggingId === entity.id}
 	/>
 {/each}
@@ -66,18 +67,20 @@
 		color: white;
 		touch-action: none;
 		user-select: none;
-		width: 200px;
-		height: 200px;
 		transition: outline 0.2s;
 		outline: solid transparent 0px;
 	}
 
 	.song {
 		border-radius: 100%;
+		width: 100px;
+		height: 100px;
 	}
 
 	.album {
 		border-radius: 30px;
+		width: 200px;
+		height: 200px;
 	}
 
 	.connection {

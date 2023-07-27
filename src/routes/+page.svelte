@@ -79,7 +79,8 @@
 
 	let connections: [number, number][] = [];
 
-	let selectedEntityIndex = 0;
+	let currentYoutubeId: string | undefined;
+
 	let panning = false;
 
 	const randomizeConnections = () => {
@@ -125,13 +126,17 @@
 	onMount(() => {
 		player = youTubePlayer('player');
 		player.on('ready', (_event) => {
-			setSong(0);
+			setPlayback(entities.flatMap((e) => (e.type === 'song' ? e : e.songs))[0].youtubeId);
+			setInterval(async () => {
+				progress = await player.getCurrentTime();
+				duration = await player.getDuration();
+			}, 100);
 			player.pauseVideo();
 			playing = false;
 		});
 		player.on('stateChange', ({ data }) => {
 			if (data === 0) {
-				setSong((selectedEntityIndex + 1) % entities.length);
+				skip();
 			}
 		});
 
@@ -161,42 +166,45 @@
 			positionMap = JSON.parse(savedPositionMap);
 		}
 
-		// const center = {
-		// 	x: 0,
-		// 	y: 0
-		// };
+		const center = {
+			x: 0,
+			y: 0
+		};
 
-		// for (const key in positionMap) {
-		// 	center.x += positionMap[key].x;
-		// 	center.y += positionMap[key].y;
-		// }
+		for (const key in positionMap) {
+			center.x += positionMap[key].x;
+			center.y += positionMap[key].y;
+		}
 
-		// center.x /= Object.keys(positionMap).length;
-		// center.y /= Object.keys(positionMap).length;
+		center.x /= Object.keys(positionMap).length;
+		center.y /= Object.keys(positionMap).length;
 
-		// for (const entity of entities) {
-		// 	if (positionMap[entity.id].x < 0) {
-		// 		positionMap[entity.id] = { ...center };
-		// 	}
-		// }
+		for (const entity of entities) {
+			if (positionMap[entity.id] === undefined) {
+				positionMap[entity.id] = { ...center };
+			}
+		}
 
-		// saveLocations();
+		saveLocations();
 
 		const songsElement = document.querySelector('.songs') as HTMLDivElement;
 
 		document.addEventListener('mousedown', (e) => {
-			for (const song of entities) {
-				const position = positionMap[song.id];
+			for (const entity of entities) {
+				const position = positionMap[entity.id];
 				const clickX = e.clientX - songsElement.getBoundingClientRect().left;
 				const clickY = e.clientY - songsElement.getBoundingClientRect().top;
 
+				const entitySize = entity.type === 'song' ? 100 : 200;
+				const entityRadius = entitySize / 2;
+
 				if (
-					position.x <= clickX &&
-					clickX <= position.x + 200 &&
-					position.y <= clickY &&
-					clickY <= position.y + 200
+					position.x - entityRadius <= clickX &&
+					clickX <= position.x + entityRadius &&
+					position.y - entityRadius <= clickY &&
+					clickY <= position.y + entityRadius
 				) {
-					draggingId = song.id;
+					draggingId = entity.id;
 					connections = [];
 				}
 			}
@@ -230,31 +238,61 @@
 		});
 	});
 
-	const setSong = (index: number) => {
-		selectedEntityIndex = index;
-		const selectedEntity = entities[selectedEntityIndex];
-		player.loadVideoById(
-			selectedEntity.type === 'song' ? selectedEntity.youtubeId : selectedEntity.songs[0].youtubeId
-		);
+	const setPlayback = async (youtubeId: string) => {
+		currentYoutubeId = youtubeId;
+
+		// const selectedEntity = entities.find((e) => e.id === selectedEntityId)!;
+
+		// if (selectedEntity.type === 'song') {
+		// 	await player.loadVideoById(selectedEntity.youtubeId);
+		// } else {
+		// 	const subEntity = selectedEntity.songs.find((e) => e.id === selectedSubId)!;
+		// 	await player.loadVideoById(subEntity.youtubeId);
+		// }
+
+		await player.loadVideoById(currentYoutubeId);
+
+		play();
+
+		// const interval = setInterval(() => {
+		// 	player.getCurrentTime().then((time) => (progress = time));
+		// 	player.getDuration().then((d) => (duration = d));
+		// }, 100);
+
+		// return () => {
+		// 	clearInterval(interval);
+		// };
+	};
+
+	const play = () => {
 		playing = true;
+		player.playVideo();
+	};
 
-		const interval = setInterval(() => {
-			player.getCurrentTime().then((time) => (progress = time));
-			player.getDuration().then((d) => (duration = d));
-		}, 100);
+	const pause = () => {
+		playing = false;
+		player.pauseVideo();
+	};
 
-		return () => {
-			clearInterval(interval);
-		};
+	const back = () => {
+		const allSongs = entities.flatMap((e) => (e.type === 'song' ? e : e.songs));
+		const currentIndex = allSongs.findIndex((song) => song.youtubeId === currentYoutubeId);
+		const nextIndex = (currentIndex - 1 + allSongs.length) % allSongs.length;
+		setPlayback(allSongs[nextIndex].youtubeId);
+	};
+
+	const skip = () => {
+		const allSongs = entities.flatMap((e) => (e.type === 'song' ? e : e.songs));
+		const currentIndex = allSongs.findIndex((song) => song.youtubeId === currentYoutubeId);
+		const nextIndex = (currentIndex + 1) % allSongs.length;
+		setPlayback(allSongs[nextIndex].youtubeId);
 	};
 
 	const togglePlayback = () => {
 		if (playing) {
-			playing = false;
-			player.pauseVideo();
+			pause();
 		} else {
-			playing = true;
-			player.playVideo();
+			play();
 		}
 	};
 
@@ -348,18 +386,18 @@
 		}
 		addEntity(entity);
 	};
+
+	// TODO: REMOVE
+	const noop = () => {};
 </script>
 
 <div id="player" />
 
 {#each entities as song, i}
-	<div class="song" class:playing={i === selectedEntityIndex}>
+	<div class="song" class:playing={false}>
 		<button
 			on:click={() => {
-				setSong(i);
-			}}
-			on:keydown={() => {
-				setSong(i);
+				setPlayback(song.type === 'song' ? song.youtubeId : song.songs[0].youtubeId);
 			}}
 		>
 			{song.entity.wrapperType === 'track' ? song.entity.trackName : song.entity.collectionName} - {song
@@ -374,14 +412,11 @@ Add song:
 </form>
 <ul>
 	{#each searchEntities as searchEntity}
-		<li
-			on:click={() => addItunesEntity(searchEntity)}
-			on:keydown={() => addItunesEntity(searchEntity)}
-		>
+		<button on:click={() => addItunesEntity(searchEntity)}>
 			{searchEntity.artistName} - {searchEntity.wrapperType === 'track'
 				? searchEntity.trackName
 				: searchEntity.collectionName} - {searchEntity.wrapperType}
-		</li>
+		</button>
 	{/each}
 </ul>
 
@@ -392,7 +427,16 @@ Add song:
 	</button>
 </p>
 
-<Controls />
+<Controls
+	{playing}
+	favorited={false}
+	favorite={noop}
+	unFavorite={noop}
+	{play}
+	{pause}
+	{back}
+	{skip}
+/>
 
 <div class="songs">
 	<SongVis {entities} {positionMap} {connections} {draggingId} />
