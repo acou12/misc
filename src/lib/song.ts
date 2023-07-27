@@ -39,3 +39,6 @@ export type Position = {
 	x: number;
 	y: number;
 };
+
+export const getEntityName = (entity: Entity) =>
+	entity.entity.wrapperType === 'track' ? entity.entity.trackName : entity.entity.collectionName;

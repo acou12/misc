@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Entity, Position, Song } from './song';
+	import { getEntityName, type Entity, type Position, type Song } from './song';
 	import { fade } from 'svelte/transition';
 
 	export let entities: Entity[];
@@ -37,11 +37,11 @@
 {#each entities as entity}
 	<img
 		src={entity.entity.artworkUrl100}
-		alt="{entity.entity.artistName} - {entity.entity.wrapperType === 'track'
-			? entity.entity.trackName
-			: entity.entity.collectionName}"
+		alt="{entity.entity.artistName} - {getEntityName(entity)}"
 		draggable="false"
-		class="song"
+		class="entity"
+		class:song={entity.type === 'song'}
+		class:album={entity.type === 'album'}
 		style="transform: translate({positionMap[entity.id].x}px, {positionMap[entity.id].y}px); "
 		class:selected={draggingId === entity.id}
 	/>
@@ -60,17 +60,24 @@
 		}
 	}
 
-	.song {
+	.entity {
 		position: absolute;
 		background-color: black;
 		color: white;
 		touch-action: none;
 		user-select: none;
-		border-radius: 30px;
 		width: 200px;
 		height: 200px;
 		transition: outline 0.2s;
 		outline: solid transparent 0px;
+	}
+
+	.song {
+		border-radius: 100%;
+	}
+
+	.album {
+		border-radius: 30px;
 	}
 
 	.connection {

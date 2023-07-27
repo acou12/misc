@@ -7,6 +7,8 @@
 	import type { YouTubePlayer } from 'youtube-player/dist/types';
 	import type { Entity, Position, Song, ItunesEntity } from '$lib/song';
 	import SongVis from '$lib/SongVis.svelte';
+	import { defEntities } from './data';
+	import Controls from '$lib/Controls.svelte';
 
 	let player: YouTubePlayer;
 	let progress: number = 0;
@@ -135,7 +137,7 @@
 
 		const savedSongs = localStorage.getItem('entities');
 		if (savedSongs === null) {
-			entities = [];
+			entities = defEntities;
 			localStorage.setItem('entities', JSON.stringify(entities));
 		} else {
 			entities = JSON.parse(savedSongs);
@@ -389,6 +391,8 @@ Add song:
 		{playing ? 'pause' : 'play'}
 	</button>
 </p>
+
+<Controls />
 
 <div class="songs">
 	<SongVis {entities} {positionMap} {connections} {draggingId} />
