@@ -6,6 +6,16 @@
 	export let positionMap: Record<number, Position>;
 	export let connections: [number, number][];
 	export let draggingId: number | undefined;
+	export let currentYoutubeId: string | undefined;
+
+	$: currentEntityId =
+		currentYoutubeId === undefined
+			? undefined
+			: entities.find((e) =>
+					e.type === 'song'
+						? e.youtubeId === currentYoutubeId
+						: e.songs.some((s) => s.youtubeId === currentYoutubeId)
+			  )!.id;
 
 	const distance = (connection: [number, number], positionMap: Record<number, Position>) => {
 		const p1 = positionMap[connection[0]];
@@ -45,6 +55,7 @@
 			entity.id
 		].y}px - 50%)); "
 		class:selected={draggingId === entity.id}
+		class:playing={entity.id === currentEntityId}
 	/>
 {/each}
 
@@ -95,5 +106,9 @@
 
 	.selected {
 		outline: solid rgb(255, 154, 243) 10px;
+	}
+
+	.playing {
+		outline: solid rgb(251, 255, 0) 10px;
 	}
 </style>

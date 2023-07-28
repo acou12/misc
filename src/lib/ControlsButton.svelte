@@ -2,10 +2,12 @@
 	import { base } from '$app/paths';
 
 	export let path: string;
+	export let size = 50;
+	export let style = '';
 </script>
 
-<button on:click>
-	<img src="{base}/icons/{path}.svg" alt="" />
+<button on:click {style}>
+	<img src="{base}/icons/{path}.svg" style="width: {size}px;" alt="" />
 </button>
 
 <style>

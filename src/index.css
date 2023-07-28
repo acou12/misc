@@ -1,4 +1,5 @@
 body {
 	background-color: rgb(10, 0, 12);
 	color: white;
+	overflow: clip;
 }
