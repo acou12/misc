@@ -1,15 +1,22 @@
+<script context="module" lang="ts">
+	export enum GuiMode {
+		PLAY,
+		EDIT
+	}
+</script>
+
 <script lang="ts">
 	import { debounce } from 'debounce';
 
 	import { onMount } from 'svelte';
 
-	const SCALE = 0.25;
+	const SCALE = 0.3;
 
 	import youTubePlayer from 'youtube-player';
 	import type { YouTubePlayer } from 'youtube-player/dist/types';
 	import type { Entity, Position, Song, ItunesEntity } from '$lib/song';
 	import SongVis from '$lib/SongVis.svelte';
-	import { defEntities } from './data';
+	// import { defEntities } from './data';
 	import Controls from '$lib/Controls.svelte';
 
 	let player: YouTubePlayer;
@@ -17,70 +24,86 @@
 	let progress: number = 0;
 	let duration: number = 0;
 
+	let guiMode = GuiMode.PLAY;
+
 	let entities: Entity[] = [];
 
 	let queue: string[] = [];
-	let queueProgress: number | undefined;
 
 	let positionMap: Record<number, Position> = {};
 
-	let connections: [number, number][] = [];
+	$: connections = connectionsFromList(queue);
 
 	let currentYoutubeId: string | undefined;
 
 	let panning = false;
 
-	const randomizeConnections = (first: Entity) => {
-		let remainingEntities = [...entities];
-		let resultOrder = [];
+	const entityFromYoutubeId = (id: string) =>
+		entities.find((entity) =>
+			entity.type === 'song'
+				? entity.youtubeId === id
+				: entity.songs.some((song) => song.youtubeId === id)
+		)!;
 
-		if (remainingEntities.length > 0) {
-			// let currentEntity = remainingEntities[Math.floor(Math.random() * remainingEntities.length)];
-			let currentEntity = first;
-			let currentPosition = positionMap[currentEntity.id];
-			resultOrder.push(currentEntity);
-			remainingEntities.splice(remainingEntities.indexOf(currentEntity), 1);
+	const entitySongs = (entity: Entity) => (entity.type === 'song' ? [entity] : entity.songs);
 
-			while (remainingEntities.length > 0) {
-				let minIndex = 0;
-				let minDistance = Infinity;
-				for (let i = 0; i < remainingEntities.length; i++) {
-					const otherSong = remainingEntities[i];
-					const otherPosition = positionMap[otherSong.id];
-					const distance = Math.hypot(
-						otherPosition.x - currentPosition.x,
-						otherPosition.y - currentPosition.y
-					);
-					if (distance < minDistance) {
-						minDistance = distance;
-						minIndex = i;
-					}
-				}
-				currentEntity = remainingEntities.splice(minIndex, 1)[0];
-				currentPosition = positionMap[currentEntity.id];
-				resultOrder.push(currentEntity);
-			}
-
-			connections = [];
-
-			for (let i = 0; i < resultOrder.length - 1; i++) {
-				connections = [...connections, [resultOrder[i].id, resultOrder[i + 1].id]];
+	const connectionsFromList = (queue: string[]) => {
+		let result = [];
+		for (let i = 0; i < queue.length - 1; i++) {
+			const e1 = entityFromYoutubeId(queue[i]).id;
+			const e2 = entityFromYoutubeId(queue[i + 1]).id;
+			if (e1 !== e2) {
+				result.push([e1, e2] as [number, number]);
 			}
 		}
+		return result;
+	};
+
+	const randomQueue = (first: Entity) => {
+		let remainingEntities = [...entities];
+		let entityQueue: Entity[] = [];
+
+		let currentEntity = first;
+		let currentPosition = positionMap[currentEntity.id];
+		entityQueue.push(currentEntity);
+		remainingEntities.splice(remainingEntities.indexOf(currentEntity), 1);
+
+		while (remainingEntities.length > 0) {
+			let minIndex = 0;
+			let minDistance = Infinity;
+			for (let i = 0; i < remainingEntities.length; i++) {
+				const otherSong = remainingEntities[i];
+				const otherPosition = positionMap[otherSong.id];
+				const distance = Math.hypot(
+					otherPosition.x - currentPosition.x,
+					otherPosition.y - currentPosition.y
+				);
+				if (distance < minDistance) {
+					minDistance = distance;
+					minIndex = i;
+				}
+			}
+			currentEntity = remainingEntities.splice(minIndex, 1)[0];
+			currentPosition = positionMap[currentEntity.id];
+			entityQueue.push(currentEntity);
+		}
+
+		const result = entityQueue.flatMap(entitySongs).map((song) => song.youtubeId);
+		console.log(result);
+		return result;
 	};
 
 	let draggingId: number | undefined = undefined;
 
 	onMount(() => {
 		player = youTubePlayer('player');
-		player.on('ready', (_event) => {
-			setPlayback(entities.flatMap((e) => (e.type === 'song' ? e : e.songs))[0].youtubeId);
+		player.on('ready', async (_event) => {
+			// await setPlayback(entities.flatMap((e) => (e.type === 'song' ? e : e.songs))[0].youtubeId);
+			// pause();
 			setInterval(async () => {
 				progress = await player.getCurrentTime();
 				duration = await player.getDuration();
 			}, 100);
-			player.pauseVideo();
-			playing = false;
 		});
 		player.on('stateChange', ({ data }) => {
 			if (data === 0) {
@@ -90,7 +113,7 @@
 
 		const savedSongs = localStorage.getItem('entities');
 		if (savedSongs === null) {
-			entities = defEntities;
+			entities = [];
 			localStorage.setItem('entities', JSON.stringify(entities));
 		} else {
 			entities = JSON.parse(savedSongs);
@@ -152,12 +175,18 @@
 					position.y - entityRadius <= clickY &&
 					clickY <= position.y + entityRadius
 				) {
-					// draggingId = entity.id;
-					setPlayback(entity.type === 'song' ? entity.youtubeId : entity.songs[0].youtubeId);
-					connections = [];
-					setTimeout(() => {
-						randomizeConnections(entity);
-					}, 2000);
+					switch (guiMode) {
+						case GuiMode.PLAY:
+							setPlayback(entity.type === 'song' ? entity.youtubeId : entity.songs[0].youtubeId);
+							queue = [];
+							setTimeout(() => {
+								queue = randomQueue(entity);
+							}, 2000);
+							break;
+						case GuiMode.EDIT:
+							draggingId = entity.id;
+							break;
+					}
 				}
 			}
 			if (draggingId === undefined) {
@@ -166,10 +195,9 @@
 		});
 
 		document.addEventListener('mouseup', (e) => {
-			// if (draggingId !== undefined) {
-			// 	draggingId = undefined;
-			// 	randomizeConnections();
-			// }
+			if (draggingId !== undefined) {
+				draggingId = undefined;
+			}
 			if (panning) {
 				panning = false;
 			}
@@ -209,17 +237,23 @@
 	};
 
 	const back = () => {
-		const allSongs = entities.flatMap((e) => (e.type === 'song' ? e : e.songs));
-		const currentIndex = allSongs.findIndex((song) => song.youtubeId === currentYoutubeId);
-		const nextIndex = (currentIndex - 1 + allSongs.length) % allSongs.length;
-		setPlayback(allSongs[nextIndex].youtubeId);
+		let currentIndex = queue.indexOf(currentYoutubeId!);
+		let newIndex = currentIndex - 1;
+		if (newIndex >= 0) {
+			setPlayback(queue[newIndex]);
+		} else {
+			pause();
+		}
 	};
 
 	const skip = () => {
-		const allSongs = entities.flatMap((e) => (e.type === 'song' ? e : e.songs));
-		const currentIndex = allSongs.findIndex((song) => song.youtubeId === currentYoutubeId);
-		const nextIndex = (currentIndex + 1) % allSongs.length;
-		setPlayback(allSongs[nextIndex].youtubeId);
+		let currentIndex = queue.indexOf(currentYoutubeId!);
+		let newIndex = currentIndex + 1;
+		if (newIndex < queue.length) {
+			setPlayback(queue[newIndex]);
+		} else {
+			pause();
+		}
 	};
 
 	const setPlaybackTime = (t: number) => {
@@ -384,6 +418,7 @@ Add song:
 	{skip}
 	{progress}
 	{duration}
+	bind:guiMode
 	{setPlaybackTime}
 />
 

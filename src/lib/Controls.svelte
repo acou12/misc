@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { GuiMode } from '../routes/+page.svelte';
 	import ControlsButton from './ControlsButton.svelte';
 
 	const PROGRESS_WIDTH = 500;
@@ -8,6 +9,8 @@
 
 	export let progress: number;
 	export let duration: number;
+
+	export let guiMode: GuiMode;
 
 	let hoverWidth: number;
 
@@ -38,7 +41,21 @@
 <div class="controls-outer">
 	<div class="center">
 		<div class="controls">
-			<ControlsButton path={'tag'} size={20} style="margin-right: 10px;" />
+			{#if guiMode === GuiMode.PLAY}
+				<ControlsButton
+					path={'edit'}
+					size={25}
+					style="margin-right: 10px;"
+					on:click={() => (guiMode = GuiMode.EDIT)}
+				/>
+			{:else}
+				<ControlsButton
+					path={'edit'}
+					size={25}
+					style="margin-right: 10px; outline: dashed white 3px;"
+					on:click={() => (guiMode = GuiMode.PLAY)}
+				/>
+			{/if}
 			<ControlsButton path={'super-back'} size={30} />
 			<ControlsButton path={'back'} on:click={back} size={30} />
 			{#if playing}

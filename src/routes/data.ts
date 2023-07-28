@@ -1,6 +1,6 @@
-import type { Entity } from '$lib/song';
+import type { Entity, Position } from '$lib/song';
 
-export const defEntities: Entity[] = [
+export const demoEntities: Entity[] = [
 	{
 		type: 'album',
 		id: 1440838039,
@@ -1844,5 +1844,137 @@ export const defEntities: Entity[] = [
 			{ id: 65615314, youtubeId: 'xJinRZkANVs' },
 			{ id: 65615363, youtubeId: 'XYV8Zt2k0RQ' }
 		]
+	},
+	{
+		type: 'song',
+		id: 1504699860,
+		youtubeId: 'Tw0zYd0eIlk',
+		entity: {
+			wrapperType: 'track',
+			kind: 'song',
+			artistId: 697833299,
+			collectionId: 1504699857,
+			trackId: 1504699860,
+			artistName: 'Phoebe Bridgers',
+			collectionName: 'Punisher',
+			trackName: 'Kyoto',
+			collectionCensoredName: 'Punisher',
+			trackCensoredName: 'Kyoto',
+			artistViewUrl: 'https://music.apple.com/us/artist/phoebe-bridgers/697833299?uo=4',
+			collectionViewUrl: 'https://music.apple.com/us/album/kyoto/1504699857?i=1504699860&uo=4',
+			trackViewUrl: 'https://music.apple.com/us/album/kyoto/1504699857?i=1504699860&uo=4',
+			previewUrl:
+				'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/49/86/d0/4986d0e4-c8d3-9dce-2d74-541b1367f388/mzaf_10104850253181162188.plus.aac.p.m4a',
+			artworkUrl30:
+				'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/39/91/4f/39914f60-e9aa-4ae9-3962-44b0a5e5d570/656605150062.jpg/30x30bb.jpg',
+			artworkUrl60:
+				'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/39/91/4f/39914f60-e9aa-4ae9-3962-44b0a5e5d570/656605150062.jpg/60x60bb.jpg',
+			artworkUrl100:
+				'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/39/91/4f/39914f60-e9aa-4ae9-3962-44b0a5e5d570/656605150062.jpg/100x100bb.jpg',
+			collectionPrice: 9.99,
+			trackPrice: 1.29,
+			releaseDate: '2020-04-09T07:00:00Z',
+			collectionExplicitness: 'explicit',
+			trackExplicitness: 'notExplicit',
+			discCount: 1,
+			discNumber: 1,
+			trackCount: 11,
+			trackNumber: 3,
+			trackTimeMillis: 184524,
+			country: 'USA',
+			currency: 'USD',
+			primaryGenreName: 'Alternative',
+			isStreamable: true
+		}
+	},
+	{
+		type: 'album',
+		id: 5611612,
+		entity: {
+			wrapperType: 'collection',
+			collectionType: 'Album',
+			artistId: 5611466,
+			collectionId: 5611612,
+			amgArtistId: 200054,
+			artistName: 'Neutral Milk Hotel',
+			collectionName: 'In the Aeroplane Over the Sea',
+			collectionCensoredName: 'In the Aeroplane Over the Sea',
+			artistViewUrl: 'https://music.apple.com/us/artist/neutral-milk-hotel/5611466?uo=4',
+			collectionViewUrl:
+				'https://music.apple.com/us/album/in-the-aeroplane-over-the-sea/5611612?uo=4',
+			artworkUrl60:
+				'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/ff/4d/e9/ff4de967-5745-d2e8-5161-f7181d4d9bac/s05.acdiexfy.jpg/60x60bb.jpg',
+			artworkUrl100:
+				'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/ff/4d/e9/ff4de967-5745-d2e8-5161-f7181d4d9bac/s05.acdiexfy.jpg/100x100bb.jpg',
+			collectionPrice: 9.99,
+			collectionExplicitness: 'notExplicit',
+			trackCount: 11,
+			copyright: '℗ 1998 Merge Records',
+			country: 'USA',
+			currency: 'USD',
+			releaseDate: '1998-02-20T08:00:00Z',
+			primaryGenreName: 'Alternative'
+		},
+		songs: [
+			{ id: 5611590, youtubeId: 'jsM7XS-2X50' },
+			{ id: 5611592, youtubeId: '82GmKPbF4XM' },
+			{ id: 5611594, youtubeId: '1FeD16vu_qQ' },
+			{ id: 5611596, youtubeId: 'MX9iW7n9qWQ' },
+			{ id: 5611598, youtubeId: 'B70a1An-X-s' },
+			{ id: 5611600, youtubeId: '3eNK38nmzw4' },
+			{ id: 5611602, youtubeId: 'RAw7k6o03EI' },
+			{ id: 5611604, youtubeId: 'DXSY0aspgKo' },
+			{ id: 5611606, youtubeId: 'Gkl8WiWFw0M' },
+			{ id: 5611608, youtubeId: 'wmnVESaiRqw' },
+			{ id: 5611610, youtubeId: 'kq5l0MT_Ivg' }
+		]
 	}
-];
+] as any as Entity[];
+
+export const demoPositions: Record<number, Position> = {
+	'5611612': { x: 4173.885241086947, y: 2080.5248387867264 },
+	'65615363': { x: 2546.478368486273, y: 301.081682290792 },
+	'65615441': { x: 2339.691442637344, y: 90.26902483323173 },
+	'209388277': { x: 3154.1439123468585, y: 2256.4995107738728 },
+	'264720008': { x: 1933.3215339507801, y: 1162.4151678047288 },
+	'266376953': { x: 3432.852895338603, y: 2146.479413967749 },
+	'336431190': { x: 4437.146461558308, y: 1867.8275020910887 },
+	'342123548': { x: 3484.7514252274827, y: 786.6754330711476 },
+	'363353526': { x: 1917.2168427578313, y: 1456.028079773358 },
+	'387239482': { x: 1663.1585301034145, y: 1110.1567091464783 },
+	'509665145': { x: 1864.6244514452092, y: 2610.6168372495276 },
+	'800092985': { x: 4553.751425227509, y: 2302.675433071127 },
+	'850571319': { x: 5793.494206770062, y: 570.9581816913131 },
+	'974485462': { x: 3488.806461131434, y: 2396.3252556984303 },
+	'991510292': { x: 2660.2753738919014, y: 57.27555367458089 },
+	'1058904300': { x: 2179.3828093265643, y: 1177.6533123406216 },
+	'1065975633': { x: 3812.0847585608035, y: 2029.6754330711228 },
+	'1065976549': { x: 3976.678511089979, y: 1731.4991570597779 },
+	'1088595729': { x: 1296.26961601454, y: 614.3726275669427 },
+	'1097861387': { x: 2219.682615667261, y: 2547.4794192172617 },
+	'1097862703': { x: 2357.222457205925, y: 2311.3823799331744 },
+	'1097862870': { x: 2162.856154193014, y: 2058.81927682969 },
+	'1097863576': { x: 2508.6112432210625, y: 2599.2892200072174 },
+	'1107075189': { x: 3850.998632003011, y: 1231.452586450522 },
+	'1107175119': { x: 1514.0005734298816, y: 891.8743180315241 },
+	'1109714965': { x: 1925.9173250669205, y: 2331.1679308854673 },
+	'1111577743': { x: 2128.9674813154884, y: 906.8934796413303 },
+	'1111778836': { x: 3608.8924184926186, y: 1096.3812353453916 },
+	'1252758311': { x: 1358.0847585608258, y: 1794.3420997377996 },
+	'1334814531': { x: 1862.1939707940455, y: 910.1917914886842 },
+	'1367926252': { x: 3821.751425227486, y: 860.0087664044701 },
+	'1440770727': { x: 5236.745452757136, y: 1042.4306672125506 },
+	'1440838039': { x: 2017.073778545225, y: 629.3588296876978 },
+	'1450550344': { x: 994.4180918941628, y: 2719.008766404445 },
+	'1456789832': { x: 1116.916458301929, y: 2284.6575469479712 },
+	'1465125802': { x: 1517.3446467645922, y: 2518.552374137567 },
+	'1468058165': { x: 5030.944938963311, y: 516.4572632928619 },
+	'1504699860': { x: 1693.5519077536253, y: 2250.5248387867127 },
+	'1557579913': { x: 1294.330123593287, y: 2034.2339724852318 },
+	'1586493976': { x: 1751.5951406183651, y: 2008.3841224787097 },
+	'1589295663': { x: 1714.7640249021722, y: 625.4752348251267 },
+	'1596227761': { x: 3997.7514252274923, y: 2375.0087664044736 },
+	'1617741451': { x: 2890.319881852901, y: 363.275898294069 },
+	'1646945378': { x: 3247.7514252274923, y: 2555.3420997378166 },
+	'1651326694': { x: 1447.4685637154355, y: 2239.9490401058556 }
+};

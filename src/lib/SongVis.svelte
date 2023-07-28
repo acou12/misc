@@ -104,8 +104,12 @@
 		animation: fadein 0.5s both;
 	}
 
+	.entity:hover {
+		outline: solid rgb(255, 255, 255) 10px;
+	}
+
 	.selected {
-		outline: solid rgb(255, 154, 243) 10px;
+		outline: solid rgb(255, 154, 243) 10px !important;
 	}
 
 	.playing {
