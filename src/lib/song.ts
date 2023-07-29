@@ -17,23 +17,26 @@ export type ItunesEntity =
 			artworkUrl100: string;
 	  };
 
-export type Song = {
+export type SongData = {
 	id: number;
 	youtubeId: string;
 };
 
-export type Album = {
+export type AlbumData = {
 	id: number;
-	songs: Song[];
+	songs: SongEntity[];
 };
 
 export type Entity =
 	| ({
 			type: 'song';
-	  } & Song & { entity: ItunesEntity & { wrapperType: 'track' } })
+	  } & SongData & { entity: ItunesEntity & { wrapperType: 'track' } })
 	| ({
 			type: 'album';
-	  } & Album & { entity: ItunesEntity & { wrapperType: 'collection' } });
+	  } & AlbumData & { entity: ItunesEntity & { wrapperType: 'collection' } });
+
+export type SongEntity = Entity & { type: 'song' };
+export type AlbumEntity = Entity & { type: 'album' };
 
 export type Position = {
 	x: number;

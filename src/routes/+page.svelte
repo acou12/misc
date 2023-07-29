@@ -14,10 +14,12 @@
 
 	import youTubePlayer from 'youtube-player';
 	import type { YouTubePlayer } from 'youtube-player/dist/types';
-	import type { Entity, Position, Song, ItunesEntity } from '$lib/song';
+	import type { Entity, Position, SongData, ItunesEntity, SongEntity } from '$lib/song';
 	import SongVis from '$lib/SongVis.svelte';
 	// import { defEntities } from './data';
 	import Controls from '$lib/Controls.svelte';
+	import { demoEntities, demoPositions } from './data';
+	import { Connection, ConnectionStatus, ConnectionType } from '$lib/connect';
 
 	let player: YouTubePlayer;
 	let playing = false;
@@ -94,13 +96,20 @@
 	};
 
 	let draggingId: number | undefined = undefined;
+	let connection: Connection;
 
 	onMount(() => {
+		let cleanups: (() => void)[] = [];
+
+		let setAndLaterClearInterval: typeof setInterval = (...params) => {
+			let interval = setInterval(...params);
+			cleanups.push(() => clearInterval(interval));
+			return interval;
+		};
+
 		player = youTubePlayer('player');
 		player.on('ready', async (_event) => {
-			// await setPlayback(entities.flatMap((e) => (e.type === 'song' ? e : e.songs))[0].youtubeId);
-			// pause();
-			setInterval(async () => {
+			setAndLaterClearInterval(async () => {
 				progress = await player.getCurrentTime();
 				duration = await player.getDuration();
 			}, 100);
@@ -114,7 +123,7 @@
 		const savedSongs = localStorage.getItem('entities');
 		if (savedSongs === null) {
 			entities = [];
-			localStorage.setItem('entities', JSON.stringify(entities));
+			saveEntities();
 		} else {
 			entities = JSON.parse(savedSongs);
 		}
@@ -126,13 +135,13 @@
 
 			for (const song of entities) {
 				newPositionMap[song.id] = {
-					x: Math.random() * 2000,
-					y: Math.random() * 2000
+					x: Math.random() * 8000,
+					y: Math.random() * 8000
 				};
 			}
 
 			positionMap = newPositionMap;
-			localStorage.setItem('positionmap', JSON.stringify(positionMap));
+			saveLocations();
 		} else {
 			positionMap = JSON.parse(savedPositionMap);
 		}
@@ -158,9 +167,39 @@
 
 		saveLocations();
 
+		// let newEntities = [...entities];
+
+		// (async () => {
+		// 	for (const entity of newEntities) {
+		// 		if (entity.type === 'album') {
+		// 			for (const song of entity.songs) {
+		// 				const itunesData = (await fetch(
+		// 					`https://itunes.apple.com/lookup?id=${song.id}&entity=song`
+		// 				).then((it) => it.json())) as {
+		// 					results: ItunesEntity[];
+		// 				};
+		// 				if (itunesData.results.length > 0) {
+		// 					song.entity = itunesData.results[0] as ItunesEntity & { wrapperType: 'track' };
+		// 				}
+		// 			}
+		// 			console.log(entity);
+		// 		}
+		// 	}
+
+		// 	localStorage.setItem('newentities', JSON.stringify(newEntities));
+		// })();
+
 		const songsElement = document.querySelector('.songs') as HTMLDivElement;
 
-		document.addEventListener('mousedown', (e) => {
+		const addEvent = <K extends keyof DocumentEventMap>(
+			k: K,
+			callback: (ev: DocumentEventMap[K]) => void
+		) => {
+			document.addEventListener(k, callback);
+			cleanups.push(() => document.removeEventListener(k, callback));
+		};
+
+		addEvent('mousedown', (e) => {
 			for (const entity of entities) {
 				const position = positionMap[entity.id];
 				const clickX = (e.clientX - songsElement.getBoundingClientRect().left) / SCALE;
@@ -179,8 +218,16 @@
 						case GuiMode.PLAY:
 							setPlayback(entity.type === 'song' ? entity.youtubeId : entity.songs[0].youtubeId);
 							queue = [];
+							connection.sendData({
+								type: 'set-queue',
+								queue
+							});
 							setTimeout(() => {
 								queue = randomQueue(entity);
+								connection.sendData({
+									type: 'set-queue',
+									queue
+								});
 							}, 2000);
 							break;
 						case GuiMode.EDIT:
@@ -194,7 +241,7 @@
 			}
 		});
 
-		document.addEventListener('mouseup', (e) => {
+		addEvent('mouseup', (e) => {
 			if (draggingId !== undefined) {
 				draggingId = undefined;
 			}
@@ -203,7 +250,7 @@
 			}
 		});
 
-		document.addEventListener('mousemove', (e) => {
+		addEvent('mousemove', (e) => {
 			if (draggingId !== undefined) {
 				positionMap[draggingId].x += e.movementX / SCALE;
 				positionMap[draggingId].y += e.movementY / SCALE;
@@ -216,22 +263,79 @@
 				}
 			}
 		});
+
+		(async () => {
+			connection = new Connection(
+				await import('peerjs'),
+				'testing',
+				() => {
+					if (
+						connection.type === ConnectionType.HOST &&
+						connection.status === ConnectionStatus.CONNECTED
+					) {
+						alert('connected!');
+					}
+				},
+				(data) => {
+					switch (data.type) {
+						case 'set-song':
+							setPlayback(data.youtubeId, false);
+							break;
+						case 'set-queue':
+							queue = data.queue;
+							break;
+						case 'set-progress':
+							setPlaybackTime(data.progress, false);
+							break;
+						case 'set-playing-status':
+							if (data.playing) {
+								play(false);
+							} else {
+								pause(false);
+							}
+							break;
+					}
+				}
+			);
+			connection.init();
+		})();
+
+		return () => cleanups.forEach((callback) => callback());
 	});
 
-	const setPlayback = async (youtubeId: string) => {
+	const setPlayback = async (youtubeId: string, sendToPeers = true) => {
+		if (sendToPeers) {
+			connection.sendData({
+				type: 'set-song',
+				youtubeId
+			});
+		}
+
 		currentYoutubeId = youtubeId;
 
 		await player.loadVideoById(currentYoutubeId);
 
-		play();
+		play(sendToPeers);
 	};
 
-	const play = () => {
+	const play = (sendToPeers = true) => {
+		if (sendToPeers) {
+			connection.sendData({
+				type: 'set-playing-status',
+				playing: true
+			});
+		}
 		playing = true;
 		player.playVideo();
 	};
 
-	const pause = () => {
+	const pause = (sendToPeers = true) => {
+		if (sendToPeers) {
+			connection.sendData({
+				type: 'set-playing-status',
+				playing: false
+			});
+		}
 		playing = false;
 		player.pauseVideo();
 	};
@@ -256,7 +360,13 @@
 		}
 	};
 
-	const setPlaybackTime = (t: number) => {
+	const setPlaybackTime = (t: number, sendToPeers = true) => {
+		if (sendToPeers) {
+			connection.sendData({
+				type: 'set-progress',
+				progress: t
+			});
+		}
 		player.seekTo(t, true);
 		progress = t;
 	};
@@ -295,9 +405,13 @@
 
 	const debouncedSaveLocations = debounce(saveLocations, 5000);
 
+	const saveEntities = () => {
+		localStorage.setItem('entities', JSON.stringify(entities));
+	};
+
 	const addEntity = (entity: Entity) => {
 		entities = [...entities, entity];
-		localStorage.setItem('entities', JSON.stringify(entities));
+		saveEntities();
 		positionMap[entity.id] = {
 			x: Math.random() * 1600,
 			y: Math.random() * 1600
@@ -329,7 +443,7 @@
 			};
 		} else {
 			// (searchSong.wrapperType === 'album')
-			const songs: Song[] = [];
+			const songs: SongEntity[] = [];
 
 			const data = (await fetch(
 				`https://itunes.apple.com/lookup?id=${searchEntity.collectionId}&entity=song`
@@ -340,9 +454,11 @@
 
 			for (let itunesEntity of data.results) {
 				if (itunesEntity.wrapperType === 'track') {
-					const song: Song = {
+					const song: SongEntity = {
+						type: 'song',
 						id: itunesEntity.trackId,
-						youtubeId: await getYoutubeIdFromTrackUrl(itunesEntity.trackViewUrl)
+						youtubeId: await getYoutubeIdFromTrackUrl(itunesEntity.trackViewUrl),
+						entity: itunesEntity
 					};
 					i++;
 					console.log(`${searchEntity.collectionName}: ${i} / ${total}`);

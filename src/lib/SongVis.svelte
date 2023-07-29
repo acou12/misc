@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getEntityName, type Entity, type Position, type Song } from './song';
+	import { getEntityName, type Entity, type Position, type SongData } from './song';
 	import { fade } from 'svelte/transition';
 
 	export let entities: Entity[];
