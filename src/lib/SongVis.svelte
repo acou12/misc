@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getEntityName, type Entity, type Position, type SongData } from './song';
-	import { fade } from 'svelte/transition';
+	import { fade, scale } from 'svelte/transition';
 
 	export let entities: Entity[];
 	export let positionMap: Record<number, Position>;
@@ -44,19 +44,21 @@
 	</div>
 {/each}
 {#each entities as entity}
-	<img
-		src={entity.entity.artworkUrl100}
-		alt="{entity.entity.artistName} - {getEntityName(entity)}"
-		draggable="false"
-		class="entity"
-		class:song={entity.type === 'song'}
-		class:album={entity.type === 'album'}
-		style="transform: translate(calc({positionMap[entity.id].x}px - 50%), calc({positionMap[
-			entity.id
-		].y}px - 50%)); "
-		class:selected={draggingId === entity.id}
-		class:playing={entity.id === currentEntityId}
-	/>
+	<div class="img-wrapper">
+		<img
+			src={entity.entity.artworkUrl100}
+			alt="{entity.entity.artistName} - {getEntityName(entity)}"
+			draggable="false"
+			class="entity"
+			class:song={entity.type === 'song'}
+			class:album={entity.type === 'album'}
+			style="transform: translate(calc({positionMap[entity.id].x}px - 50%), calc({positionMap[
+				entity.id
+			].y}px - 50%)); "
+			class:selected={draggingId === entity.id}
+			class:playing={entity.id === currentEntityId}
+		/>
+	</div>
 {/each}
 
 <style>
@@ -70,6 +72,21 @@
 			opacity: 1;
 			/* transform: scaleX(1); */
 		}
+	}
+
+	@keyframes scalein {
+		from {
+			transform: scaleX(0) scaleY(0);
+		}
+
+		to {
+			transform: scaleX(1) scaleY(1);
+		}
+	}
+
+	.img-wrapper {
+		transform-origin: center;
+		animation: scalein 1s both;
 	}
 
 	.entity {

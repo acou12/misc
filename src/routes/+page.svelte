@@ -7,19 +7,26 @@
 
 <script lang="ts">
 	import { debounce } from 'debounce';
-
 	import { onMount } from 'svelte';
-
-	const SCALE = 0.3;
-
 	import youTubePlayer from 'youtube-player';
 	import type { YouTubePlayer } from 'youtube-player/dist/types';
-	import type { Entity, Position, SongData, ItunesEntity, SongEntity } from '$lib/song';
+
+	import type {
+		Entity,
+		Position,
+		SongData,
+		ItunesEntity,
+		SongEntity,
+		getEntityName
+	} from '$lib/song';
+
 	import SongVis from '$lib/SongVis.svelte';
-	// import { defEntities } from './data';
 	import Controls from '$lib/Controls.svelte';
-	import { demoEntities, demoPositions } from './data';
 	import { Connection, ConnectionStatus, ConnectionType } from '$lib/connect';
+	import { addTask, deleteTask, updateTask, type Task } from '$lib/tasks';
+	import { fade, scale } from 'svelte/transition';
+
+	const SCALE = 0.3;
 
 	let player: YouTubePlayer;
 	let playing = false;
@@ -39,6 +46,17 @@
 	let currentYoutubeId: string | undefined;
 
 	let panning = false;
+
+	let tasks: Task[] = [
+		{
+			id: Symbol(),
+			message: 'bruh'
+		},
+		{
+			id: Symbol(),
+			message: 'bruh2'
+		}
+	];
 
 	const entityFromYoutubeId = (id: string) =>
 		entities.find((entity) =>
@@ -126,6 +144,9 @@
 			saveEntities();
 		} else {
 			entities = JSON.parse(savedSongs);
+			entities = entities.filter(
+				(entity) => entities.filter((other) => other.id === entity.id).length === 1
+			);
 		}
 
 		const savedPositionMap = localStorage.getItem('positionmap');
@@ -231,7 +252,12 @@
 							}, 2000);
 							break;
 						case GuiMode.EDIT:
-							draggingId = entity.id;
+							if (e.button === 2) {
+								// entities = entities.filter((it) => it.id !== entity.id);
+								// saveEntities();
+							} else {
+								draggingId = entity.id;
+							}
 							break;
 					}
 				}
@@ -419,13 +445,32 @@
 		saveLocations();
 	};
 
-	const getYoutubeIdFromTrackUrl = async (trackViewUrl: string): Promise<string> => {
-		const data = await fetch(
+	const getDataFromItunesId = async (id: number) => {
+		const data = (await fetch(`https://itunes.apple.com/lookup?id=${id}&entity=song`).then((it) =>
+			it.json()
+		)) as { results: ItunesEntity[] };
+		return data;
+	};
+
+	const getDataFromTrackUrl = async (trackViewUrl: string) => {
+		const data = (await fetch(
 			`https://api.song.link/v1-alpha.1/links?url=${encodeURI(
 				trackViewUrl
 			)}&userCountry=US&songIfSingle=true`
-		).then((it) => it.json());
-		const id: string = data.linksByPlatform['youtube'].entityUniqueId.split('::')[1];
+		).then((it) => it.json())) as {
+			pageUrl: string;
+			linksByPlatform: {
+				youtube?: { entityUniqueId: string };
+				itunes?: { entityUniqueId: string };
+			};
+		};
+		return data;
+	};
+
+	const getYoutubeIdFromTrackUrl = async (trackViewUrl: string): Promise<string> => {
+		const data = await getDataFromTrackUrl(trackViewUrl);
+		if (data.linksByPlatform.youtube === undefined) throw new Error();
+		const id: string = data.linksByPlatform.youtube.entityUniqueId.split('::')[1];
 		return id;
 	};
 
@@ -476,6 +521,50 @@
 		addEntity(entity);
 	};
 
+	const addNewSong = async () => {
+		const [newTasks, taskId] = addTask(
+			tasks,
+			`adding new song with url <a href="${newSongInput}">${newSongInput}</a>...`
+		);
+		tasks = newTasks;
+
+		const data = await getDataFromTrackUrl(newSongInput);
+		newSongInput = '';
+
+		if (data.linksByPlatform.itunes === undefined) {
+			tasks = updateTask(
+				tasks,
+				taskId,
+				`something went wrong: there's no iTunes metadata available for that song. (${newSongInput})`
+			);
+			return;
+		}
+
+		const id = parseInt(data.linksByPlatform.itunes.entityUniqueId.split('::')[1]);
+		const itunesData = await getDataFromItunesId(id);
+
+		if (itunesData.results.length === 0) {
+			tasks = updateTask(
+				tasks,
+				taskId,
+				`something went wrong: this should never happen [but it probably will]. (${newSongInput})`
+			);
+			return;
+		}
+
+		const itunesResult = itunesData.results[0];
+
+		tasks = updateTask(
+			tasks,
+			taskId,
+			`<u>${
+				itunesResult.wrapperType === 'track' ? itunesResult.trackName : itunesResult.collectionName
+			}</u> has been added!`
+		);
+
+		addItunesEntity(itunesData.results[0]);
+	};
+
 	// TODO: REMOVE
 	const noop = () => {};
 </script>
@@ -494,33 +583,49 @@
 		</button>
 	</div>
 {/each} -->
-
-<!--
+<!-- 
 Add song:
 <form>
 	<input type="text" bind:value={newSongInput} on:input={debouncedSearchSongs} />
 </form>
 <ul>
 	{#each searchEntities as searchEntity}
-		<button on:click={() => addItunesEntity(searchEntity)}>
-			{searchEntity.artistName} - {searchEntity.wrapperType === 'track'
-				? searchEntity.trackName
-				: searchEntity.collectionName} - {searchEntity.wrapperType}
-		</button>
+		<div class="new-song-outer">
+			<button class="new-song" on:click={() => addItunesEntity(searchEntity)}>
+				{searchEntity.artistName} - {searchEntity.wrapperType === 'track'
+					? searchEntity.trackName
+					: searchEntity.collectionName} - {searchEntity.wrapperType}
+			</button>
+		</div>
 	{/each}
-</ul> 
--->
+</ul> -->
 
-<!-- 
-<p>
-	{prettySeconds(progress)} / {prettySeconds(duration)}
-	<button on:click={togglePlayback}>
-		{playing ? 'pause' : 'play'}
-	</button>
-</p> -->
+<form on:submit|preventDefault={addNewSong}>
+	<input type="text" placeholder="add song: enter a url..." bind:value={newSongInput} />
+</form>
 
 <div class="songs" style="transform: scale({SCALE});">
 	<SongVis {entities} {positionMap} {connections} {draggingId} {currentYoutubeId} />
+</div>
+
+<div class="tasks">
+	{#each tasks as task, i}
+		<div class="task" transition:scale={{}}>
+			<div class="message">
+				{@html task.message}
+			</div>
+
+			<div class="close">
+				<button
+					on:click={() => {
+						tasks = deleteTask(tasks, task.id);
+					}}
+				>
+					x
+				</button>
+			</div>
+		</div>
+	{/each}
 </div>
 
 <Controls
@@ -551,5 +656,45 @@ Add song:
 	.songs {
 		position: relative;
 		transform-origin: top left;
+	}
+
+	.new-song {
+		outline: none;
+		border: none;
+		background-color: rgba(0, 0, 0, 0.8);
+		color: white;
+	}
+
+	.tasks {
+		position: fixed;
+		top: 0;
+		right: 0;
+	}
+
+	.task {
+		width: 300px;
+		background-color: black;
+		color: white;
+		padding: 15px;
+		border-radius: 10px;
+		margin: 5px;
+
+		display: flex;
+	}
+
+	.task .message {
+		margin-right: auto;
+	}
+
+	.task .close button,
+	input {
+		background-color: black;
+		color: white;
+		border: none;
+		outline: none;
+	}
+
+	.task .close button:hover {
+		background-color: rgb(15, 15, 15);
 	}
 </style>
