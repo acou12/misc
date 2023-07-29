@@ -29,6 +29,10 @@ export type DataTransfer =
 	| {
 			type: 'set-playing-status';
 			playing: boolean;
+	  }
+	| {
+			type: 'add-entity';
+			entity: Entity;
 	  };
 
 const prefix = 'aydenmc-music-';

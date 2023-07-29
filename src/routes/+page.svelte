@@ -11,13 +11,15 @@
 	import youTubePlayer from 'youtube-player';
 	import type { YouTubePlayer } from 'youtube-player/dist/types';
 
-	import type {
-		Entity,
-		Position,
-		SongData,
-		ItunesEntity,
-		SongEntity,
-		getEntityName
+	import {
+		type Entity,
+		type Position,
+		type SongData,
+		type ItunesEntity,
+		type SongEntity,
+		getEntityName,
+		entityFromYoutubeId,
+		entitySongs
 	} from '$lib/song';
 
 	import SongVis from '$lib/SongVis.svelte';
@@ -25,6 +27,7 @@
 	import { Connection, ConnectionStatus, ConnectionType } from '$lib/connect';
 	import { addTask, deleteTask, updateTask, type Task } from '$lib/tasks';
 	import { fade, scale } from 'svelte/transition';
+	import TrackListing from '$lib/TrackListing.svelte';
 
 	const SCALE = 0.3;
 
@@ -58,20 +61,11 @@
 		}
 	];
 
-	const entityFromYoutubeId = (id: string) =>
-		entities.find((entity) =>
-			entity.type === 'song'
-				? entity.youtubeId === id
-				: entity.songs.some((song) => song.youtubeId === id)
-		)!;
-
-	const entitySongs = (entity: Entity) => (entity.type === 'song' ? [entity] : entity.songs);
-
 	const connectionsFromList = (queue: string[]) => {
 		let result = [];
 		for (let i = 0; i < queue.length - 1; i++) {
-			const e1 = entityFromYoutubeId(queue[i]).id;
-			const e2 = entityFromYoutubeId(queue[i + 1]).id;
+			const e1 = entityFromYoutubeId(entities, queue[i]).id;
+			const e2 = entityFromYoutubeId(entities, queue[i + 1]).id;
 			if (e1 !== e2) {
 				result.push([e1, e2] as [number, number]);
 			}
@@ -220,6 +214,8 @@
 			cleanups.push(() => document.removeEventListener(k, callback));
 		};
 
+		addEvent('contextmenu', (e) => e.preventDefault());
+
 		addEvent('mousedown', (e) => {
 			for (const entity of entities) {
 				const position = positionMap[entity.id];
@@ -235,30 +231,32 @@
 					position.y - entityRadius <= clickY &&
 					clickY <= position.y + entityRadius
 				) {
-					switch (guiMode) {
-						case GuiMode.PLAY:
-							setPlayback(entity.type === 'song' ? entity.youtubeId : entity.songs[0].youtubeId);
-							queue = [];
-							connection.sendData({
-								type: 'set-queue',
-								queue
-							});
-							setTimeout(() => {
-								queue = randomQueue(entity);
+					if (e.button === 2) {
+						infoId = entity.id;
+						e.preventDefault();
+					} else {
+						switch (guiMode) {
+							case GuiMode.PLAY:
+								setPlayback(entity.type === 'song' ? entity.youtubeId : entity.songs[0].youtubeId);
+								queue = [];
 								connection.sendData({
 									type: 'set-queue',
 									queue
 								});
-							}, 2000);
-							break;
-						case GuiMode.EDIT:
-							if (e.button === 2) {
+								setTimeout(() => {
+									queue = randomQueue(entity);
+									connection.sendData({
+										type: 'set-queue',
+										queue
+									});
+								}, 2000);
+								break;
+							case GuiMode.EDIT:
 								// entities = entities.filter((it) => it.id !== entity.id);
 								// saveEntities();
-							} else {
 								draggingId = entity.id;
-							}
-							break;
+								break;
+						}
 					}
 				}
 			}
@@ -320,6 +318,14 @@
 								pause(false);
 							}
 							break;
+						case 'add-entity':
+							addEntity(data.entity, false);
+							const [newTasks, _] = addTask(
+								tasks,
+								`<u>${getEntityName(data.entity)}</u> has been added!`
+							);
+							tasks = newTasks;
+							break;
 					}
 				}
 			);
@@ -340,6 +346,8 @@
 		currentYoutubeId = youtubeId;
 
 		await player.loadVideoById(currentYoutubeId);
+
+		infoId = entityFromYoutubeId(entities, youtubeId).id;
 
 		play(sendToPeers);
 	};
@@ -435,7 +443,13 @@
 		localStorage.setItem('entities', JSON.stringify(entities));
 	};
 
-	const addEntity = (entity: Entity) => {
+	const addEntity = (entity: Entity, sendToPeers = true) => {
+		if (sendToPeers) {
+			connection.sendData({
+				type: 'add-entity',
+				entity
+			});
+		}
 		entities = [...entities, entity];
 		saveEntities();
 		positionMap[entity.id] = {
@@ -443,6 +457,11 @@
 			y: Math.random() * 1600
 		};
 		saveLocations();
+	};
+
+	const deleteEntity = (id: number) => {
+		entities = entities.filter((e) => e.id !== id);
+		saveEntities();
 	};
 
 	const getDataFromItunesId = async (id: number) => {
@@ -467,19 +486,23 @@
 		return data;
 	};
 
-	const getYoutubeIdFromTrackUrl = async (trackViewUrl: string): Promise<string> => {
+	const getYoutubeIdFromTrackUrl = async (trackViewUrl: string): Promise<string | undefined> => {
 		const data = await getDataFromTrackUrl(trackViewUrl);
-		if (data.linksByPlatform.youtube === undefined) throw new Error();
+		if (data.linksByPlatform.youtube === undefined) return undefined;
 		const id: string = data.linksByPlatform.youtube.entityUniqueId.split('::')[1];
 		return id;
 	};
 
-	const addItunesEntity = async (searchEntity: ItunesEntity) => {
+	const addItunesEntity = async (
+		searchEntity: ItunesEntity,
+		progress = (n: number, total: number) => {}
+	) => {
 		newSongInput = '';
 		searchEntities = [];
 		let entity: Entity;
 		if (searchEntity.wrapperType === 'track') {
 			const youtubeId = await getYoutubeIdFromTrackUrl(searchEntity.trackViewUrl);
+			if (youtubeId === undefined) return;
 			entity = {
 				type: 'song',
 				id: searchEntity.trackId,
@@ -499,15 +522,19 @@
 
 			for (let itunesEntity of data.results) {
 				if (itunesEntity.wrapperType === 'track') {
-					const song: SongEntity = {
-						type: 'song',
-						id: itunesEntity.trackId,
-						youtubeId: await getYoutubeIdFromTrackUrl(itunesEntity.trackViewUrl),
-						entity: itunesEntity
-					};
+					const id = await getYoutubeIdFromTrackUrl(itunesEntity.trackViewUrl);
+					if (id !== undefined) {
+						const song: SongEntity = {
+							type: 'song',
+							id: itunesEntity.trackId,
+							youtubeId: id,
+							entity: itunesEntity
+						};
+						songs.push(song);
+					}
 					i++;
-					console.log(`${searchEntity.collectionName}: ${i} / ${total}`);
-					songs.push(song);
+					progress(i + 1, total);
+					console.log(`${searchEntity.collectionName}: ${i + 1} / ${total}`);
 				}
 			}
 
@@ -554,6 +581,10 @@
 
 		const itunesResult = itunesData.results[0];
 
+		await addItunesEntity(itunesResult, (n, total) => {
+			tasks = updateTask(tasks, taskId, `downloading song info... [${n} / ${total}]`);
+		});
+
 		tasks = updateTask(
 			tasks,
 			taskId,
@@ -561,9 +592,9 @@
 				itunesResult.wrapperType === 'track' ? itunesResult.trackName : itunesResult.collectionName
 			}</u> has been added!`
 		);
-
-		addItunesEntity(itunesData.results[0]);
 	};
+
+	let infoId: number | undefined;
 
 	// TODO: REMOVE
 	const noop = () => {};
@@ -643,6 +674,19 @@ Add song:
 	{setPlaybackTime}
 />
 
+{#if infoId !== undefined}
+	<TrackListing
+		{entities}
+		deleteEntity={(id) => {
+			infoId = undefined;
+			deleteEntity(id);
+		}}
+		id={infoId}
+		{setPlayback}
+		{currentYoutubeId}
+	/>
+{/if}
+
 <style>
 	#player {
 		display: none;
@@ -686,15 +730,10 @@ Add song:
 		margin-right: auto;
 	}
 
-	.task .close button,
 	input {
 		background-color: black;
 		color: white;
 		border: none;
 		outline: none;
-	}
-
-	.task .close button:hover {
-		background-color: rgb(15, 15, 15);
 	}
 </style>

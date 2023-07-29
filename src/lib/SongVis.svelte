@@ -43,7 +43,7 @@
 		/>
 	</div>
 {/each}
-{#each entities as entity}
+{#each entities as entity (entity.id)}
 	<div class="img-wrapper">
 		<img
 			src={entity.entity.artworkUrl100}

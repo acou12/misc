@@ -45,3 +45,12 @@ export type Position = {
 
 export const getEntityName = (entity: Entity) =>
 	entity.entity.wrapperType === 'track' ? entity.entity.trackName : entity.entity.collectionName;
+
+export const entityFromYoutubeId = (entities: Entity[], id: string) =>
+	entities.find((entity) =>
+		entity.type === 'song'
+			? entity.youtubeId === id
+			: entity.songs.some((song) => song.youtubeId === id)
+	)!;
+
+export const entitySongs = (entity: Entity) => (entity.type === 'song' ? [entity] : entity.songs);
