@@ -29,7 +29,7 @@
 
 	import { Connection, ConnectionStatus, ConnectionType } from '$lib/connect';
 	import { addTask, deleteTask, updateTask, type Task } from '$lib/tasks';
-	import { demoEntities, demoPositions } from './data';
+	import { _1001, demoEntities, demoPositions } from './data';
 
 	const SCALE = 0.3;
 
@@ -40,7 +40,7 @@
 
 	let guiMode = GuiMode.PLAY;
 
-	let entities: EntityArray;
+	let entities: EntityArray = new EntityArray([]);
 
 	let queue: string[] = [];
 
@@ -99,6 +99,11 @@
 		return result;
 	};
 
+	const randomPosition = (): Position => ({
+		x: Math.random() * 1000,
+		y: Math.random() * 1000
+	});
+
 	let draggingId: number | undefined = undefined;
 	let connection: Connection;
 
@@ -124,37 +129,33 @@
 			}
 		});
 
-		entities = new EntityArray(demoEntities);
+		entities = new EntityArray(JSON.parse(localStorage.getItem('entities')!));
+		// entities = new EntityArray(demoEntities);
 
-		entities.on('add', ({ newEntity }) => {
-			positions[newEntity.id] = randomPosition();
+		entities.on('add', ({ entity }) => {
+			positions[entity.id] = randomPosition();
+			saveLocations();
 		});
-		entities.on('delete', ({ id }) => {
-			delete positions[id];
+		entities.on('delete', ({ entity }) => {
+			delete positions[entity.id];
+			saveLocations();
 		});
 
-		positions = demoPositions;
-		// let newEntities = [...entities];
+		entities.on('add', () => saveEntities());
+		entities.on('delete', () => saveEntities());
+		entities.on('update', () => saveEntities());
 
-		// (async () => {
-		// 	for (const entity of newEntities) {
-		// 		if (entity.type === 'album') {
-		// 			for (const song of entity.songs) {
-		// 				const itunesData = (await fetch(
-		// 					`https://itunes.apple.com/lookup?id=${song.id}&entity=song`
-		// 				).then((it) => it.json())) as {
-		// 					results: ItunesEntity[];
-		// 				};
-		// 				if (itunesData.results.length > 0) {
-		// 					song.entity = itunesData.results[0] as ItunesEntity & { wrapperType: 'track' };
-		// 				}
-		// 			}
-		// 			console.log(entity);
-		// 		}
-		// 	}
+		entities.on('add', ({ entity }) => {
+			const [newTasks, _] = addTask(tasks, `<u>${getEntityName(entity)}</u> has been added!`);
+			tasks = newTasks;
+		});
+		entities.on('delete', ({ entity }) => {
+			const [newTasks, _] = addTask(tasks, `<u>${getEntityName(entity)}</u> has been deleted!`);
+			tasks = newTasks;
+		});
 
-		// 	localStorage.setItem('newentities', JSON.stringify(newEntities));
-		// })();
+		positions = JSON.parse(localStorage.getItem('positionmap')!);
+		// positions = demoPositions;
 
 		const songsElement = document.querySelector('.songs') as HTMLDivElement;
 
@@ -195,17 +196,15 @@
 									type: 'set-queue',
 									queue
 								});
-								setTimeout(() => {
-									queue = randomQueue(entity);
-									connection.sendData({
-										type: 'set-queue',
-										queue
-									});
-								}, 2000);
+								// setTimeout(() => {
+								// 	queue = randomQueue(entity);
+								// 	connection.sendData({
+								// 		type: 'set-queue',
+								// 		queue
+								// 	});
+								// }, 2000);
 								break;
 							case GuiMode.EDIT:
-								// entities = entities.filter((it) => it.id !== entity.id);
-								// saveEntities();
 								draggingId = entity.id;
 								break;
 						}
@@ -272,16 +271,28 @@
 							break;
 						case 'add-entity':
 							entities.add(data.entity);
-							const [newTasks, _] = addTask(
-								tasks,
-								`<u>${getEntityName(data.entity)}</u> has been added!`
-							);
-							tasks = newTasks;
 							break;
 					}
 				}
 			);
 			connection.init();
+		})();
+
+		(async () => {
+			let i = 0;
+			for (const [artist, name] of _1001) {
+				if ($entities.some((entity) => entity.entity.artistName === artist)) {
+					i++;
+					console.log(i);
+				}
+				// const results = await search(name);
+				// if (results.length > 0) {
+				// 	const result = results[0];
+				// addItunesEntity(result, (n, total) => {
+				// 	console.log(`${result.collectionName} [${n} / ${total}]`);
+				// });
+				// }
+			}
 		})();
 
 		return () => cleanups.forEach((callback) => callback());
@@ -357,42 +368,27 @@
 		progress = t;
 	};
 
-	const togglePlayback = () => {
-		if (playing) {
-			pause();
-		} else {
-			play();
-		}
-	};
-
-	let prettySeconds = (totalSeconds: number) => {
-		const minutes = Math.floor(totalSeconds / 60);
-		const seconds = Math.floor(totalSeconds % 60);
-		const secondsDisplay = seconds < 10 ? `0${seconds}` : `${seconds}`;
-		return `${minutes}:${secondsDisplay}`;
-	};
-
 	let newSongInput = '';
 	let searchEntities: ItunesEntity[] = [];
 
-	const debouncedSearchSongs = debounce(async () => {
+	const search = async (term: string) => {
 		const itunesData = (await fetch(
-			`https://itunes.apple.com/search?term=${encodeURI(newSongInput)}&country=US&entity=song,album`
+			`https://itunes.apple.com/search?term=${term}&country=US&entity=album`
 		).then((it) => it.json())) as {
 			results: ItunesEntity[];
 		};
 
-		searchEntities = itunesData.results;
-	}, 500);
+		return itunesData.results;
+	};
 
 	const saveLocations = () => {
-		// localStorage.setItem('positionmap', JSON.stringify(positions));
+		localStorage.setItem('positionmap', JSON.stringify(positions));
 	};
 
 	const debouncedSaveLocations = debounce(saveLocations, 5000);
 
 	const saveEntities = () => {
-		// localStorage.setItem('entities', JSON.stringify(entities));
+		localStorage.setItem('entities', JSON.stringify($entities));
 	};
 
 	const getDataFromItunesId = async (id: number) => {
@@ -426,7 +422,7 @@
 
 	const addItunesEntity = async (
 		searchEntity: ItunesEntity,
-		progress = (n: number, total: number) => {}
+		progress = (_n: number, _total: number) => {}
 	) => {
 		newSongInput = '';
 		searchEntities = [];
@@ -511,18 +507,14 @@
 		}
 
 		const itunesResult = itunesData.results[0];
+		const name =
+			itunesResult.wrapperType === 'track' ? itunesResult.trackName : itunesResult.collectionName;
 
 		await addItunesEntity(itunesResult, (n, total) => {
-			tasks = updateTask(tasks, taskId, `downloading song info... [${n} / ${total}]`);
+			tasks = updateTask(tasks, taskId, `downloading ${name}'s info... [${n} / ${total}]`);
 		});
 
-		tasks = updateTask(
-			tasks,
-			taskId,
-			`<u>${
-				itunesResult.wrapperType === 'track' ? itunesResult.trackName : itunesResult.collectionName
-			}</u> has been added!`
-		);
+		tasks = deleteTask(tasks, taskId);
 	};
 
 	let infoId: number | undefined;
@@ -532,35 +524,6 @@
 </script>
 
 <div id="player" />
-
-<!-- {#each entities as song, i}
-	<div class="song" class:playing={false}>
-		<button
-			on:click={() => {
-				setPlayback(song.type === 'song' ? song.youtubeId : song.songs[0].youtubeId);
-			}}
-		>
-			{song.entity.wrapperType === 'track' ? song.entity.trackName : song.entity.collectionName} - {song
-				.entity.artistName}
-		</button>
-	</div>
-{/each} -->
-<!-- 
-Add song:
-<form>
-	<input type="text" bind:value={newSongInput} on:input={debouncedSearchSongs} />
-</form>
-<ul>
-	{#each searchEntities as searchEntity}
-		<div class="new-song-outer">
-			<button class="new-song" on:click={() => addItunesEntity(searchEntity)}>
-				{searchEntity.artistName} - {searchEntity.wrapperType === 'track'
-					? searchEntity.trackName
-					: searchEntity.collectionName} - {searchEntity.wrapperType}
-			</button>
-		</div>
-	{/each}
-</ul> -->
 
 <form on:submit|preventDefault={addNewSong}>
 	<input type="text" placeholder="add song: enter a url..." bind:value={newSongInput} />
@@ -609,6 +572,7 @@ Add song:
 	<TrackListing
 		{entities}
 		deleteMe={() => {
+			console.log(infoId);
 			if (infoId !== undefined) {
 				entities.remove(infoId);
 				infoId = undefined;

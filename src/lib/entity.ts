@@ -59,8 +59,9 @@ export const entityFromYoutubeId = (entities: Entity[], id: string) =>
 export const entitySongs = (entity: Entity) => (entity.type === 'song' ? [entity] : entity.songs);
 
 type HandlerParams = {
-	add: { newEntity: Entity };
-	delete: { id: number };
+	add: { entity: Entity };
+	delete: { entity: Entity };
+	update: { id: number };
 };
 
 export class EntityArray {
@@ -71,16 +72,20 @@ export class EntityArray {
 		this.entities = writable(entities);
 		this.eventHandlers = {
 			add: [],
-			delete: []
+			delete: [],
+			update: []
 		};
 	}
 
 	add(entity: Entity) {
 		this.entities.update((oldEntities) => [...oldEntities, entity]);
+		this.emit('add', { entity });
 	}
 
 	remove(id: number) {
+		const entity = get(this.entities).find((entity) => entity.id === id)!;
 		this.entities.update((oldEntities) => oldEntities.filter((e) => e.id !== id));
+		this.emit('delete', { entity });
 	}
 
 	get(id: number) {
@@ -96,14 +101,20 @@ export class EntityArray {
 		return {
 			subscribe: (callback: Subscriber<Entity>) =>
 				this.entities.subscribe((entities) => callback(entity)),
-			set: (value: Entity) =>
+			set: (value: Entity) => {
 				this.entities.update((oldEntities) =>
 					oldEntities.map((entity) => (entity.id === id ? value : entity))
-				)
+				);
+				this.emit('update', { id });
+			}
 		};
 	}
 
 	on<K extends keyof HandlerParams>(k: K, handler: (params: HandlerParams[K]) => void): void {
 		this.eventHandlers[k].push(handler);
+	}
+
+	private emit<K extends keyof HandlerParams>(k: K, data: HandlerParams[K]) {
+		this.eventHandlers[k].forEach((handler) => handler(data));
 	}
 }
