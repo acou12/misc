@@ -28,6 +28,7 @@
 	import { addTask, deleteTask, updateTask, type Task } from '$lib/tasks';
 	import { fade, scale } from 'svelte/transition';
 	import TrackListing from '$lib/TrackListing.svelte';
+	import { demoEntities, demoPositions } from './data';
 
 	const SCALE = 0.3;
 
@@ -50,16 +51,7 @@
 
 	let panning = false;
 
-	let tasks: Task[] = [
-		{
-			id: Symbol(),
-			message: 'bruh'
-		},
-		{
-			id: Symbol(),
-			message: 'bruh2'
-		}
-	];
+	let tasks: Task[] = [];
 
 	const connectionsFromList = (queue: string[]) => {
 		let result = [];
@@ -132,56 +124,8 @@
 			}
 		});
 
-		const savedSongs = localStorage.getItem('entities');
-		if (savedSongs === null) {
-			entities = [];
-			saveEntities();
-		} else {
-			entities = JSON.parse(savedSongs);
-			entities = entities.filter(
-				(entity) => entities.filter((other) => other.id === entity.id).length === 1
-			);
-		}
-
-		const savedPositionMap = localStorage.getItem('positionmap');
-
-		if (savedPositionMap === null) {
-			let newPositionMap: typeof positionMap = {};
-
-			for (const song of entities) {
-				newPositionMap[song.id] = {
-					x: Math.random() * 8000,
-					y: Math.random() * 8000
-				};
-			}
-
-			positionMap = newPositionMap;
-			saveLocations();
-		} else {
-			positionMap = JSON.parse(savedPositionMap);
-		}
-
-		const center = {
-			x: 0,
-			y: 0
-		};
-
-		for (const key in positionMap) {
-			center.x += positionMap[key].x;
-			center.y += positionMap[key].y;
-		}
-
-		center.x /= Object.keys(positionMap).length;
-		center.y /= Object.keys(positionMap).length;
-
-		for (const entity of entities) {
-			if (positionMap[entity.id] === undefined) {
-				positionMap[entity.id] = { ...center };
-			}
-		}
-
-		saveLocations();
-
+		entities = demoEntities;
+		positionMap = demoPositions;
 		// let newEntities = [...entities];
 
 		// (async () => {
@@ -434,13 +378,13 @@
 	}, 500);
 
 	const saveLocations = () => {
-		localStorage.setItem('positionmap', JSON.stringify(positionMap));
+		// localStorage.setItem('positionmap', JSON.stringify(positionMap));
 	};
 
 	const debouncedSaveLocations = debounce(saveLocations, 5000);
 
 	const saveEntities = () => {
-		localStorage.setItem('entities', JSON.stringify(entities));
+		// localStorage.setItem('entities', JSON.stringify(entities));
 	};
 
 	const addEntity = (entity: Entity, sendToPeers = true) => {
