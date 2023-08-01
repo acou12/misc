@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { getEntityName, type Entity, type Position, type SongData } from './song';
+	import { getEntityName, type Entity, type Position, type SongData, EntityArray } from './entity';
 	import { fade, scale } from 'svelte/transition';
 
-	export let entities: Entity[];
-	export let positionMap: Record<number, Position>;
+	export let entities: EntityArray;
+	export let positions: Record<number, Position>;
 	export let connections: [number, number][];
 	export let draggingId: number | undefined;
 	export let currentYoutubeId: string | undefined;
@@ -11,21 +11,21 @@
 	$: currentEntityId =
 		currentYoutubeId === undefined
 			? undefined
-			: entities.find((e) =>
+			: $entities.find((e) =>
 					e.type === 'song'
 						? e.youtubeId === currentYoutubeId
 						: e.songs.some((s) => s.youtubeId === currentYoutubeId)
 			  )!.id;
 
-	const distance = (connection: [number, number], positionMap: Record<number, Position>) => {
-		const p1 = positionMap[connection[0]];
-		const p2 = positionMap[connection[1]];
+	const distance = (connection: [number, number], positions: Record<number, Position>) => {
+		const p1 = positions[connection[0]];
+		const p2 = positions[connection[1]];
 		return Math.hypot(p1.x - p2.x, p1.y - p2.y);
 	};
 
-	const angle = (connection: [number, number], positionMap: Record<number, Position>) => {
-		const p1 = positionMap[connection[0]];
-		const p2 = positionMap[connection[1]];
+	const angle = (connection: [number, number], positions: Record<number, Position>) => {
+		const p1 = positions[connection[0]];
+		const p2 = positions[connection[1]];
 		return Math.atan2(p2.y - p1.y, p2.x - p1.x);
 	};
 </script>
@@ -34,16 +34,16 @@
 	<div class="connection-wrap">
 		<div
 			class="connection"
-			style="transform: translate({positionMap[connection[0]].x}px, {positionMap[connection[0]]
-				.y}px) rotate({angle(connection, positionMap)}rad); width: {distance(
+			style="transform: translate({positions[connection[0]].x}px, {positions[connection[0]]
+				.y}px) rotate({angle(connection, positions)}rad); width: {distance(
 				connection,
-				positionMap
+				positions
 			)}px; animation-delay: {i * 0.02}s;"
 			out:fade={{ duration: 200 }}
 		/>
 	</div>
 {/each}
-{#each entities as entity (entity.id)}
+{#each $entities as entity (entity.id)}
 	<div class="img-wrapper">
 		<img
 			src={entity.entity.artworkUrl100}
@@ -52,9 +52,8 @@
 			class="entity"
 			class:song={entity.type === 'song'}
 			class:album={entity.type === 'album'}
-			style="transform: translate(calc({positionMap[entity.id].x}px - 50%), calc({positionMap[
-				entity.id
-			].y}px - 50%)); "
+			style="transform: translate(calc({positions[entity.id].x}px - 50%), calc({positions[entity.id]
+				.y}px - 50%)); "
 			class:selected={draggingId === entity.id}
 			class:playing={entity.id === currentEntityId}
 		/>

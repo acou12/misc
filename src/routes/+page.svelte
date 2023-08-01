@@ -8,26 +8,27 @@
 <script lang="ts">
 	import { debounce } from 'debounce';
 	import { onMount } from 'svelte';
+	import { fade, scale } from 'svelte/transition';
 	import youTubePlayer from 'youtube-player';
 	import type { YouTubePlayer } from 'youtube-player/dist/types';
 
 	import {
 		type Entity,
 		type Position,
-		type SongData,
 		type ItunesEntity,
 		type SongEntity,
 		getEntityName,
 		entityFromYoutubeId,
-		entitySongs
-	} from '$lib/song';
+		entitySongs,
+		EntityArray
+	} from '$lib/entity';
 
 	import SongVis from '$lib/SongVis.svelte';
 	import Controls from '$lib/Controls.svelte';
+	import TrackListing from '$lib/TrackListing.svelte';
+
 	import { Connection, ConnectionStatus, ConnectionType } from '$lib/connect';
 	import { addTask, deleteTask, updateTask, type Task } from '$lib/tasks';
-	import { fade, scale } from 'svelte/transition';
-	import TrackListing from '$lib/TrackListing.svelte';
 	import { demoEntities, demoPositions } from './data';
 
 	const SCALE = 0.3;
@@ -39,11 +40,11 @@
 
 	let guiMode = GuiMode.PLAY;
 
-	let entities: Entity[] = [];
+	let entities: EntityArray;
 
 	let queue: string[] = [];
 
-	let positionMap: Record<number, Position> = {};
+	let positions: Record<number, Position> = {};
 
 	$: connections = connectionsFromList(queue);
 
@@ -56,8 +57,8 @@
 	const connectionsFromList = (queue: string[]) => {
 		let result = [];
 		for (let i = 0; i < queue.length - 1; i++) {
-			const e1 = entityFromYoutubeId(entities, queue[i]).id;
-			const e2 = entityFromYoutubeId(entities, queue[i + 1]).id;
+			const e1 = entityFromYoutubeId($entities, queue[i]).id;
+			const e2 = entityFromYoutubeId($entities, queue[i + 1]).id;
 			if (e1 !== e2) {
 				result.push([e1, e2] as [number, number]);
 			}
@@ -66,11 +67,11 @@
 	};
 
 	const randomQueue = (first: Entity) => {
-		let remainingEntities = [...entities];
+		let remainingEntities = [...$entities];
 		let entityQueue: Entity[] = [];
 
 		let currentEntity = first;
-		let currentPosition = positionMap[currentEntity.id];
+		let currentPosition = positions[currentEntity.id];
 		entityQueue.push(currentEntity);
 		remainingEntities.splice(remainingEntities.indexOf(currentEntity), 1);
 
@@ -79,7 +80,7 @@
 			let minDistance = Infinity;
 			for (let i = 0; i < remainingEntities.length; i++) {
 				const otherSong = remainingEntities[i];
-				const otherPosition = positionMap[otherSong.id];
+				const otherPosition = positions[otherSong.id];
 				const distance = Math.hypot(
 					otherPosition.x - currentPosition.x,
 					otherPosition.y - currentPosition.y
@@ -90,12 +91,11 @@
 				}
 			}
 			currentEntity = remainingEntities.splice(minIndex, 1)[0];
-			currentPosition = positionMap[currentEntity.id];
+			currentPosition = positions[currentEntity.id];
 			entityQueue.push(currentEntity);
 		}
 
 		const result = entityQueue.flatMap(entitySongs).map((song) => song.youtubeId);
-		console.log(result);
 		return result;
 	};
 
@@ -124,8 +124,16 @@
 			}
 		});
 
-		entities = demoEntities;
-		positionMap = demoPositions;
+		entities = new EntityArray(demoEntities);
+
+		entities.on('add', ({ newEntity }) => {
+			positions[newEntity.id] = randomPosition();
+		});
+		entities.on('delete', ({ id }) => {
+			delete positions[id];
+		});
+
+		positions = demoPositions;
 		// let newEntities = [...entities];
 
 		// (async () => {
@@ -161,8 +169,8 @@
 		addEvent('contextmenu', (e) => e.preventDefault());
 
 		addEvent('mousedown', (e) => {
-			for (const entity of entities) {
-				const position = positionMap[entity.id];
+			for (const entity of $entities) {
+				const position = positions[entity.id];
 				const clickX = (e.clientX - songsElement.getBoundingClientRect().left) / SCALE;
 				const clickY = (e.clientY - songsElement.getBoundingClientRect().top) / SCALE;
 
@@ -220,13 +228,13 @@
 
 		addEvent('mousemove', (e) => {
 			if (draggingId !== undefined) {
-				positionMap[draggingId].x += e.movementX / SCALE;
-				positionMap[draggingId].y += e.movementY / SCALE;
+				positions[draggingId].x += e.movementX / SCALE;
+				positions[draggingId].y += e.movementY / SCALE;
 				debouncedSaveLocations();
 			} else if (panning) {
-				for (const song of entities) {
-					positionMap[song.id].x += e.movementX / SCALE;
-					positionMap[song.id].y += e.movementY / SCALE;
+				for (const song of $entities) {
+					positions[song.id].x += e.movementX / SCALE;
+					positions[song.id].y += e.movementY / SCALE;
 					debouncedSaveLocations();
 				}
 			}
@@ -263,7 +271,7 @@
 							}
 							break;
 						case 'add-entity':
-							addEntity(data.entity, false);
+							entities.add(data.entity);
 							const [newTasks, _] = addTask(
 								tasks,
 								`<u>${getEntityName(data.entity)}</u> has been added!`
@@ -291,7 +299,7 @@
 
 		await player.loadVideoById(currentYoutubeId);
 
-		infoId = entityFromYoutubeId(entities, youtubeId).id;
+		infoId = entityFromYoutubeId($entities, youtubeId).id;
 
 		play(sendToPeers);
 	};
@@ -378,34 +386,13 @@
 	}, 500);
 
 	const saveLocations = () => {
-		// localStorage.setItem('positionmap', JSON.stringify(positionMap));
+		// localStorage.setItem('positionmap', JSON.stringify(positions));
 	};
 
 	const debouncedSaveLocations = debounce(saveLocations, 5000);
 
 	const saveEntities = () => {
 		// localStorage.setItem('entities', JSON.stringify(entities));
-	};
-
-	const addEntity = (entity: Entity, sendToPeers = true) => {
-		if (sendToPeers) {
-			connection.sendData({
-				type: 'add-entity',
-				entity
-			});
-		}
-		entities = [...entities, entity];
-		saveEntities();
-		positionMap[entity.id] = {
-			x: Math.random() * 1600,
-			y: Math.random() * 1600
-		};
-		saveLocations();
-	};
-
-	const deleteEntity = (id: number) => {
-		entities = entities.filter((e) => e.id !== id);
-		saveEntities();
 	};
 
 	const getDataFromItunesId = async (id: number) => {
@@ -489,7 +476,7 @@
 				songs
 			};
 		}
-		addEntity(entity);
+		entities.add(entity);
 	};
 
 	const addNewSong = async () => {
@@ -580,7 +567,7 @@ Add song:
 </form>
 
 <div class="songs" style="transform: scale({SCALE});">
-	<SongVis {entities} {positionMap} {connections} {draggingId} {currentYoutubeId} />
+	<SongVis {entities} {positions} {connections} {draggingId} {currentYoutubeId} />
 </div>
 
 <div class="tasks">
@@ -621,9 +608,11 @@ Add song:
 {#if infoId !== undefined}
 	<TrackListing
 		{entities}
-		deleteEntity={(id) => {
-			infoId = undefined;
-			deleteEntity(id);
+		deleteMe={() => {
+			if (infoId !== undefined) {
+				entities.remove(infoId);
+				infoId = undefined;
+			}
 		}}
 		id={infoId}
 		{setPlayback}

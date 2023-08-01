@@ -1,5 +1,5 @@
 import type * as peerjsType from 'peerjs';
-import type { Entity } from './song';
+import type { Entity } from './entity';
 
 export enum ConnectionStatus {
 	CONNECTING,

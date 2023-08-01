@@ -1,37 +1,33 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import { getEntityName, type Entity, entitySongs } from './song';
+	import { getEntityName, entitySongs, EntityArray } from './entity';
 
-	export let entities: Entity[];
-	export let deleteEntity: (id: number) => void;
+	export let entities: EntityArray;
 	export let id: number;
 	export let currentYoutubeId: string | undefined;
+	export let deleteMe: () => void;
 	export let setPlayback: (youtubeId: string, sendToPeers?: boolean) => Promise<void>;
 
-	$: entity = entities.find((e) => e.id === id)!;
+	$: entity = entities.getEntity(id);
 </script>
 
 <div class="track-listing" transition:fade={{}}>
 	<img
-		src={entity.entity.artworkUrl100}
-		alt={entity.entity.artistName + ' - ' + getEntityName(entity)}
+		src={$entity.entity.artworkUrl100}
+		alt={$entity.entity.artistName + ' - ' + getEntityName($entity)}
 	/>
 	<div class="text">
 		<h2>
-			{getEntityName(entity)}
+			{getEntityName($entity)}
 		</h2>
 		<h3>
-			{entity.entity.artistName}
+			{$entity.entity.artistName}
 		</h3>
 		<div class="controls">
-			<button
-				on:click={() => {
-					deleteEntity(id);
-				}}>Delete</button
-			>
+			<button on:click={deleteMe}>Delete</button>
 		</div>
 		<hr />
-		{#each entitySongs(entity) as song, i (song.id)}
+		{#each entitySongs($entity) as song, i (song.id)}
 			<div class="song-outer">
 				<button
 					class="song"

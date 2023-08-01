@@ -1,4 +1,4 @@
-import type { Entity, Position } from '$lib/song';
+import type { Entity, Position } from '$lib/entity';
 
 export const demoEntities: Entity[] = [
 	{
