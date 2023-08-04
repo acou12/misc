@@ -131,9 +131,3 @@ export const lex = (source: string): Token[] => {
   }
   return tokens;
 };
-
-/*
-
-
-
-*/
