@@ -1,4 +1,5 @@
 import { Token } from "./lex";
+import { isOperator } from "./util";
 
 export type Program = {
     type: "program";
@@ -86,9 +87,6 @@ export type Block = {
 //     type: "right",
 //     value: b,
 // });
-
-const ALLOWED_OPERATOR_SYMBOLS = "+-!@#$%^&*'?/;:<>`~";
-const isOperator = (char: string) => ALLOWED_OPERATOR_SYMBOLS.includes(char);
 
 export const parse = (source: string, tokens: Token[]) => {
     let index = 0;
@@ -329,7 +327,7 @@ export const parse = (source: string, tokens: Token[]) => {
         }
     };
 
-    const parseExpression = (): Expression => {
+    const parseExpressionWithCalls = (): Expression => {
         const token = currentToken();
 
         let expression: Expression | undefined = undefined;
@@ -363,30 +361,79 @@ export const parse = (source: string, tokens: Token[]) => {
         }
 
         if (expression === undefined) {
-            return error("man... invalid expression");
+            return error("invalid expression.");
         }
 
-        // todo: sketchy
-        while (true) {
-            if (hasTokens()) {
-                const token = currentToken();
-                if (token.type === "special" && token.value === "(") {
-                    index++;
-                    const parameters = parseSeparatedList(
-                        parseExpression,
-                        (t) => t.type === "special" && t.value === ",",
-                        (t) => t.type === "special" && t.value === ")"
-                    );
-                    expression = {
-                        type: "function-application",
-                        function: expression,
-                        parameters,
-                    };
-                    continue;
-                }
-                break;
+        {
+            let token: Token;
+            while (
+                hasTokens() &&
+                (token = currentToken()).type === "special" &&
+                token.value === "("
+            ) {
+                index++;
+                const parameters = parseSeparatedList(
+                    parseExpression,
+                    (t) => t.type === "special" && t.value === ",",
+                    (t) => t.type === "special" && t.value === ")"
+                );
+                expression = {
+                    type: "function-application",
+                    function: expression,
+                    parameters,
+                };
             }
-            break;
+        }
+
+        return expression;
+    };
+
+    const parseOperator = (): string => {
+        let operator = "";
+        let token: Token;
+        while (
+            hasTokens() &&
+            (token = currentToken()).type === "special" &&
+            isOperator(token.value)
+        ) {
+            operator += token.value;
+            index++;
+            if (hasTokens()) {
+                token = currentToken();
+            }
+        }
+        return operator;
+    };
+
+    const parseExpression = (): Expression => {
+        let expression = parseExpressionWithCalls();
+
+        let token: Token;
+        let firstOperator: string | undefined;
+        while (
+            hasTokens() &&
+            (token = currentToken()).type === "special" &&
+            isOperator(token.value)
+        ) {
+            const operator = parseOperator();
+            if (firstOperator === undefined) {
+                firstOperator = operator;
+            } else {
+                if (firstOperator !== operator) {
+                    return error(
+                        "distinct operators used in an expression must be clarified with parenthesis. "
+                    );
+                }
+            }
+            const rightExpression = parseExpressionWithCalls();
+            expression = {
+                type: "function-application",
+                function: {
+                    type: "id",
+                    value: operator,
+                },
+                parameters: [expression, rightExpression],
+            };
         }
 
         return expression;
@@ -394,12 +441,3 @@ export const parse = (source: string, tokens: Token[]) => {
 
     return parseProgram();
 };
-
-/*
-
-program = statement, { newline, statement }
-statement = function declaration | variable declaration
-function_declaration = def, id, "(", { typed param }, ")", ":", type, "=", block
-block = indent, { statement }, dedent
-
-*/

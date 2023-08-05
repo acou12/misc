@@ -158,3 +158,15 @@ def lift_opertor:
           for j in 0..<1000:
               let lift area = width * height
               f(i, j, area)
+
+def multiline_stuff:
+    let s =
+        `this is a multiline string. as long
+        `you keep adding backquotes, it will
+        `continue. but maybe it could be better...    
+
+    let array = reverse([
+        1, 2, 3,
+        4, 5, 6
+ 
+    print(array)
