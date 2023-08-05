@@ -1,41 +1,56 @@
 import { Token } from "./lex";
-type Program = {
+export type Program = {
     type: "program";
     statements: Statement[];
 };
-type Statement = FunctionDeclaration | VariableDeclaration;
-type FunctionDeclaration = {
+export type Statement = FunctionDeclaration | VariableDeclaration | Expression;
+export type FunctionDeclaration = {
     type: "function-declaration";
     name: string;
     typedParameters: TypedParameter[];
     returnType: Type;
     body: Block;
 };
-type VariableDeclaration = {
+export type VariableDeclaration = {
     type: "variable-declaration";
     keywords: Keyword[];
     name: string;
+    variableType: Type;
     rhs: Expression;
 };
-type Keyword = never;
-type TypedParameter = {
+export type Keyword = never;
+export type TypedParameter = {
     type: "typed-parameter";
     name: string;
     parameterType: Type;
 };
-type Type = "TODO: ADD TYPES SOON";
-type Expression = NumberLiteral | StringLiteral;
-type NumberLiteral = {
+export type Type = {
+    type: "type";
+} & ({
+    typeType: "int";
+} | {
+    typeType: "str";
+});
+export type Identifier = {
+    type: "id";
+    value: string;
+};
+export type Expression = NumberLiteral | StringLiteral | FunctionApplication | Identifier;
+export type NumberLiteral = {
     type: "number-literal";
     value: number;
 };
-type StringLiteral = {
+export type StringLiteral = {
     type: "string-literal";
     value: string;
 };
-type Block = {
+export type FunctionApplication = {
+    type: "function-application";
+    function: Expression;
+    parameters: Expression[];
+};
+export type Block = {
     type: "block";
     statements: Statement[];
 };
 export declare const parse: (source: string, tokens: Token[]) => Program;
-export {};

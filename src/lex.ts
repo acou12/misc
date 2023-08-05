@@ -40,7 +40,7 @@ type Lexer = (
     source: string,
     index: number,
     context: LexContext
-) => { token: Token; newIndex: number; newContext: LexContext } | undefined;
+) => { tokens: Token[]; newIndex: number; newContext: LexContext } | undefined;
 
 const isAlpha = (char: string) =>
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".includes(char);
@@ -66,7 +66,7 @@ const lexKleen =
                 newIndex++;
             }
             return {
-                token: { type, value: tokenString, index },
+                tokens: [{ type, value: tokenString, index }],
                 newIndex,
                 newContext: context,
             };
@@ -89,6 +89,14 @@ const lexIndent: Lexer = (source, index, { indentationLevel }) => {
             newIndex += TAB_SIZE;
             newIndentationLevel++;
         }
+        if (newIndex < source.length && source[newIndex] === "\n") {
+            // temporary way of allowing empty lines without deindenting
+            return {
+                tokens: [],
+                newContext: { indentationLevel },
+                newIndex,
+            };
+        }
         let type: Token["type"];
         if (newIndentationLevel === indentationLevel) {
             type = "newline";
@@ -98,8 +106,20 @@ const lexIndent: Lexer = (source, index, { indentationLevel }) => {
             // newIndentationLevel > indentationLevel
             type = "indent";
         }
+        let tokens: Token[] = [];
+        if (type !== "newline") {
+            for (
+                let i = 0;
+                i < Math.abs(newIndentationLevel - indentationLevel);
+                i++
+            ) {
+                tokens.push({ type, index });
+            }
+        } else {
+            tokens = [{ type, index }];
+        }
         return {
-            token: { type, index },
+            tokens,
             newContext: { indentationLevel: newIndentationLevel },
             newIndex,
         };
@@ -116,7 +136,7 @@ const lexString: Lexer = (source, index, context) => {
     let endQuoteIndex = index;
     if (source[index] === '"') {
         endQuoteIndex++;
-        while (index < source.length && source[endQuoteIndex] !== '"') {
+        while (endQuoteIndex < source.length && source[endQuoteIndex] !== '"') {
             endQuoteIndex++;
         }
         if (endQuoteIndex >= source.length) {
@@ -124,11 +144,13 @@ const lexString: Lexer = (source, index, context) => {
             exit(1);
         } else {
             return {
-                token: {
-                    type: "string-literal",
-                    value: source.slice(index + 1, endQuoteIndex),
-                    index,
-                },
+                tokens: [
+                    {
+                        type: "string-literal",
+                        value: source.slice(index + 1, endQuoteIndex),
+                        index,
+                    },
+                ],
                 newIndex: endQuoteIndex + 1,
                 newContext: context,
             };
@@ -159,7 +181,7 @@ export const lex = (source: string): Token[] => {
         for (const lexer of lexers) {
             const result = lexer(source, index, context);
             if (result !== undefined) {
-                tokens.push(result.token);
+                tokens.push(...result.tokens);
                 index = result.newIndex;
                 context = result.newContext;
                 foundLex = true;

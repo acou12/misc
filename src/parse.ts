@@ -1,14 +1,13 @@
-import { consoleTestResultHandler } from "tslint/lib/test";
 import { Token } from "./lex";
 
-type Program = {
+export type Program = {
     type: "program";
     statements: Statement[];
 };
 
-type Statement = FunctionDeclaration | VariableDeclaration;
+export type Statement = FunctionDeclaration | VariableDeclaration | Expression;
 
-type FunctionDeclaration = {
+export type FunctionDeclaration = {
     type: "function-declaration";
     name: string;
     typedParameters: TypedParameter[];
@@ -16,36 +15,54 @@ type FunctionDeclaration = {
     body: Block;
 };
 
-type VariableDeclaration = {
+export type VariableDeclaration = {
     type: "variable-declaration";
     keywords: Keyword[];
     name: string;
+    variableType: Type;
     rhs: Expression;
 };
 
-type Keyword = never;
+export type Keyword = never;
 
-type TypedParameter = {
+export type TypedParameter = {
     type: "typed-parameter";
     name: string;
     parameterType: Type;
 };
 
-type Type = "TODO: ADD TYPES SOON";
+export type Type = {
+    type: "type";
+} & ({ typeType: "int" } | { typeType: "str" });
 
-type Expression = NumberLiteral | StringLiteral;
+export type Identifier = {
+    type: "id";
+    value: string;
+};
 
-type NumberLiteral = {
+export type Expression =
+    | NumberLiteral
+    | StringLiteral
+    | FunctionApplication
+    | Identifier;
+
+export type NumberLiteral = {
     type: "number-literal";
     value: number;
 };
 
-type StringLiteral = {
+export type StringLiteral = {
     type: "string-literal";
     value: string;
 };
 
-type Block = {
+export type FunctionApplication = {
+    type: "function-application";
+    function: Expression;
+    parameters: Expression[];
+};
+
+export type Block = {
     type: "block";
     statements: Statement[];
 };
@@ -69,6 +86,9 @@ type Block = {
 //     type: "right",
 //     value: b,
 // });
+
+const ALLOWED_OPERATOR_SYMBOLS = "+-!@#$%^&*'?/;:<>`~";
+const isOperator = (char: string) => ALLOWED_OPERATOR_SYMBOLS.includes(char);
 
 export const parse = (source: string, tokens: Token[]) => {
     let index = 0;
@@ -129,24 +149,18 @@ export const parse = (source: string, tokens: Token[]) => {
         };
     };
 
-    const parseStatement = (): Statement | undefined => {
+    const parseStatement = (): Statement => {
         const token = currentToken();
-        if (token.type === "alpha") {
-            switch (token.value) {
-                case "let":
-                    return parseVariableDeclaration();
-                case "def":
-                    return parseFunctionDeclaration();
-                default:
-                    return error(
-                        "invalid start of statement: should be let or def"
-                    );
-            }
-        } else if (token.type === "newline") {
-            index++;
-            return undefined;
+        if (token.type === "alpha" && token.value === "let") {
+            return parseVariableDeclaration();
+        } else if (token.type === "alpha" && token.value === "def") {
+            return parseFunctionDeclaration();
         } else {
-            return error("invalid start of statement: should be alpha");
+            let expression = parseExpression();
+            if (hasTokens()) {
+                consumeType("newline");
+            }
+            return expression;
         }
     };
 
@@ -158,15 +172,17 @@ export const parse = (source: string, tokens: Token[]) => {
         if (idToken.type === "alpha") {
             const name = idToken.value;
             index++;
+            consumeValue("special", ":");
+            const variableType = parseType();
             consumeValue("special", "=");
             const rhs = parseExpression();
             if (hasTokens()) {
                 if (
-                    !(
-                        currentToken().type === "newline" ||
-                        currentToken().type === "dedent"
-                    )
+                    currentToken().type === "newline" ||
+                    currentToken().type === "dedent"
                 ) {
+                    index++;
+                } else {
                     error(
                         "your variable assigment did not end in a nice manner."
                     );
@@ -176,10 +192,31 @@ export const parse = (source: string, tokens: Token[]) => {
                 type: "variable-declaration",
                 keywords: [],
                 name,
+                variableType,
                 rhs,
             };
         } else {
             return error("var name should be an alpha");
+        }
+    };
+
+    const parseType = (): Type => {
+        const token = currentToken();
+
+        if (token.type === "alpha") {
+            switch (token.value) {
+                case "int":
+                case "str":
+                    index++;
+                    return {
+                        type: "type",
+                        typeType: token.value,
+                    };
+                default:
+                    return error("invalid type.");
+            }
+        } else {
+            return error("type is not an alpha.");
         }
     };
 
@@ -197,15 +234,32 @@ export const parse = (source: string, tokens: Token[]) => {
                 (t) => t.type === "special" && t.value === ",",
                 (t) => t.type === "special" && t.value === ")"
             );
-            // consumeValue('special', ':')
-            // const returnType = parseType()
+            consumeValue("special", ":");
+            const returnType = parseType();
             consumeValue("special", "=");
-            const body = parseBlock();
+            const token = currentToken();
+
+            let body: Block | undefined;
+
+            if (token.type === "indent") {
+                body = parseBlock();
+            } else if (token.type === "newline") {
+                index++;
+                body = {
+                    type: "block",
+                    statements: [],
+                };
+            } else {
+                body = {
+                    type: "block",
+                    statements: [parseStatement()],
+                };
+            }
             return {
                 type: "function-declaration",
                 name,
                 typedParameters,
-                returnType: "TODO: ADD TYPES SOON",
+                returnType,
                 body,
             };
         } else {
@@ -217,12 +271,12 @@ export const parse = (source: string, tokens: Token[]) => {
         consumeType("indent");
         const statements: Statement[] = [];
         let token = currentToken();
-        while (token.type !== "dedent") {
+        while (hasTokens() && token.type !== "dedent") {
             const statement = parseStatement();
-            if (statement !== undefined) {
-                statements.push(statement);
+            statements.push(statement);
+            if (hasTokens()) {
+                token = currentToken();
             }
-            token = currentToken();
         }
         index++;
         return {
@@ -236,16 +290,22 @@ export const parse = (source: string, tokens: Token[]) => {
         if (token.type === "alpha") {
             const name = token.value;
             index++;
+            consumeValue("special", ":");
+            const parameterType = parseType();
             return {
                 type: "typed-parameter",
                 name,
-                parameterType: "TODO: ADD TYPES SOON",
+                parameterType,
             };
         } else {
             return error("parameter must be alpha!!");
         }
     };
 
+    /**
+     * @returns a list of nodes parsed by `parser`, skipping separators.
+     * this consumes the ending token (matching `isEnd`).
+     */
     const parseSeparatedList = <Node>(
         parser: () => Node,
         isSeparator: (token: Token) => boolean,
@@ -262,6 +322,9 @@ export const parse = (source: string, tokens: Token[]) => {
                 token = currentToken();
                 index++;
             } while (isSeparator(token));
+            index--;
+            if (!isEnd(currentToken())) error("unclosed list.");
+            index++;
             return nodes;
         }
     };
@@ -269,19 +332,64 @@ export const parse = (source: string, tokens: Token[]) => {
     const parseExpression = (): Expression => {
         const token = currentToken();
 
+        let expression: Expression | undefined = undefined;
+
         switch (token.type) {
             case "string-literal":
                 index++;
-                return token;
+                expression = token;
+                break;
             case "number-literal":
                 index++;
-                return {
+                expression = {
                     ...token,
                     value: parseInt(token.value),
                 };
-            default:
-                return error("man... invalid expression");
+                break;
+            case "special":
+                if (token.value === "(") {
+                    index++;
+                    expression = parseExpression();
+                    consumeValue("special", ")");
+                }
+                break;
+            case "alpha":
+                index++;
+                expression = {
+                    type: "id",
+                    value: token.value,
+                };
+                break;
         }
+
+        if (expression === undefined) {
+            return error("man... invalid expression");
+        }
+
+        // todo: sketchy
+        while (true) {
+            if (hasTokens()) {
+                const token = currentToken();
+                if (token.type === "special" && token.value === "(") {
+                    index++;
+                    const parameters = parseSeparatedList(
+                        parseExpression,
+                        (t) => t.type === "special" && t.value === ",",
+                        (t) => t.type === "special" && t.value === ")"
+                    );
+                    expression = {
+                        type: "function-application",
+                        function: expression,
+                        parameters,
+                    };
+                    continue;
+                }
+                break;
+            }
+            break;
+        }
+
+        return expression;
     };
 
     return parseProgram();
