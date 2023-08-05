@@ -1,4 +1,5 @@
-import { Expression, Program, Statement } from "./parse";
+import { Expression, Identifier, Program, Statement } from "./parse";
+import { isOperator } from "./util";
 
 export const emit = (ast: Program): string =>
     ast.statements
@@ -8,10 +9,12 @@ export const emit = (ast: Program): string =>
 
 const emitStatement = (statement: Statement): string =>
     statement.type === "variable-declaration"
-        ? `let ${statement.name}=${emitExpression(statement.rhs)}`
+        ? `let ${emitIdentifier(statement.name)}=${emitExpression(
+              statement.rhs
+          )}`
         : statement.type === "function-declaration"
-        ? `let ${statement.name}=(${statement.typedParameters
-              .map((parameter) => parameter.name)
+        ? `let ${emitIdentifier(statement.name)}=(${statement.typedParameters
+              .map((parameter) => emitIdentifier(parameter.name))
               .join(",")})=>{${statement.body.statements
               .map(emitStatement)
               .map((s) => s + ";")
@@ -24,7 +27,15 @@ const emitExpression = (expression: Expression): string =>
         : expression.type === "string-literal"
         ? `"${expression.value}"`
         : expression.type === "id"
-        ? `${expression.value}`
+        ? `${emitIdentifier(expression)}`
         : `(${emitExpression(expression.function)})(${expression.parameters
               .map(emitExpression)
               .join(",")})`;
+
+const emitIdentifier = (id: Identifier): string =>
+    id.value
+        .split("")
+        .map((char) =>
+            isOperator(char) ? `_$_${char.charCodeAt(0)}_$_` : char
+        )
+        .join("");

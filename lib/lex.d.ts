@@ -13,6 +13,9 @@ export type Token = {
     type: "number-literal";
     value: string;
 } | {
+    type: "raw-id";
+    value: string;
+} | {
     type: "whitespace";
 } | {
     type: "newline";

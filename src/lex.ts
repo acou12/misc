@@ -1,4 +1,5 @@
 import { exit } from "process";
+import { ALLOWED_OPERATOR_SYMBOLS, isOperator } from "./util";
 
 const TAB_SIZE = 4;
 
@@ -17,6 +18,10 @@ export type Token = { index: number } & (
       }
     | {
           type: "number-literal";
+          value: string;
+      }
+    | {
+          type: "raw-id";
           value: string;
       }
     | {
@@ -132,31 +137,62 @@ const lexNumber: Lexer = lexKleen("number-literal", (c) =>
     "0123456789".includes(c)
 );
 
-const lexString: Lexer = (source, index, context) => {
-    let endQuoteIndex = index;
-    if (source[index] === '"') {
-        endQuoteIndex++;
-        while (endQuoteIndex < source.length && source[endQuoteIndex] !== '"') {
+const lexSurround =
+    (surround: string, type: Token["type"], description: string): Lexer =>
+    (source, index, context) => {
+        let endQuoteIndex = index;
+        if (source[index] === surround) {
             endQuoteIndex++;
-        }
-        if (endQuoteIndex >= source.length) {
-            console.log("UNCLOSED STRING. >:(");
-            exit(1);
+            while (
+                endQuoteIndex < source.length &&
+                source[endQuoteIndex] !== surround
+            ) {
+                endQuoteIndex++;
+            }
+            if (endQuoteIndex >= source.length) {
+                console.log(`unclosed ${description}. >:(`);
+                exit(1);
+            } else {
+                return {
+                    tokens: [
+                        {
+                            type,
+                            value: source.slice(index + 1, endQuoteIndex),
+                            index,
+                        },
+                    ],
+                    newIndex: endQuoteIndex + 1,
+                    newContext: context,
+                };
+            }
         } else {
-            return {
-                tokens: [
-                    {
-                        type: "string-literal",
-                        value: source.slice(index + 1, endQuoteIndex),
-                        index,
-                    },
-                ],
-                newIndex: endQuoteIndex + 1,
-                newContext: context,
-            };
+            return undefined;
         }
-    } else {
+    };
+
+const lexString = lexSurround('"', "string-literal", "string");
+const lexRawId: Lexer = (source, index, context) => {
+    const surroundResult = lexSurround("`", "raw-id", "string")(
+        source,
+        index,
+        context
+    );
+    if (surroundResult === undefined) {
         return undefined;
+    } else {
+        if (
+            !surroundResult.tokens.every(
+                (token) =>
+                    token.type === "raw-id" &&
+                    token.value.split("").every(isOperator)
+            )
+        ) {
+            throw new Error(
+                `raw ids can only contain operator characters (${ALLOWED_OPERATOR_SYMBOLS})`
+            );
+        } else {
+            return surroundResult;
+        }
     }
 };
 
@@ -171,6 +207,7 @@ export const lex = (source: string): Token[] => {
         lexIndent,
         lexNumber,
         lexString,
+        lexRawId,
         lexFallback,
     ];
     let context: LexContext = {

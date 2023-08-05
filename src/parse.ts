@@ -10,7 +10,7 @@ export type Statement = FunctionDeclaration | VariableDeclaration | Expression;
 
 export type FunctionDeclaration = {
     type: "function-declaration";
-    name: string;
+    name: Identifier;
     typedParameters: TypedParameter[];
     returnType: Type;
     body: Block;
@@ -19,7 +19,7 @@ export type FunctionDeclaration = {
 export type VariableDeclaration = {
     type: "variable-declaration";
     keywords: Keyword[];
-    name: string;
+    name: Identifier;
     variableType: Type;
     rhs: Expression;
 };
@@ -28,7 +28,7 @@ export type Keyword = never;
 
 export type TypedParameter = {
     type: "typed-parameter";
-    name: string;
+    name: Identifier;
     parameterType: Type;
 };
 
@@ -165,37 +165,28 @@ export const parse = (source: string, tokens: Token[]) => {
     const parseVariableDeclaration = (): VariableDeclaration => {
         index++; // skip "let"
 
-        const idToken = currentToken();
-
-        if (idToken.type === "alpha") {
-            const name = idToken.value;
-            index++;
-            consumeValue("special", ":");
-            const variableType = parseType();
-            consumeValue("special", "=");
-            const rhs = parseExpression();
-            if (hasTokens()) {
-                if (
-                    currentToken().type === "newline" ||
-                    currentToken().type === "dedent"
-                ) {
-                    index++;
-                } else {
-                    error(
-                        "your variable assigment did not end in a nice manner."
-                    );
-                }
+        const name = parseId();
+        consumeValue("special", ":");
+        const variableType = parseType();
+        consumeValue("special", "=");
+        const rhs = parseExpression();
+        if (hasTokens()) {
+            if (
+                currentToken().type === "newline" ||
+                currentToken().type === "dedent"
+            ) {
+                index++;
+            } else {
+                error("your variable assigment did not end in a nice manner.");
             }
-            return {
-                type: "variable-declaration",
-                keywords: [],
-                name,
-                variableType,
-                rhs,
-            };
-        } else {
-            return error("var name should be an alpha");
         }
+        return {
+            type: "variable-declaration",
+            keywords: [],
+            name,
+            variableType,
+            rhs,
+        };
     };
 
     const parseType = (): Type => {
@@ -221,48 +212,41 @@ export const parse = (source: string, tokens: Token[]) => {
     const parseFunctionDeclaration = (): FunctionDeclaration => {
         index++; // skip "def"
 
-        const idToken = currentToken();
+        const name = parseId();
+        consumeValue("special", "(");
+        const typedParameters = parseSeparatedList(
+            parseTypedParameter,
+            (t) => t.type === "special" && t.value === ",",
+            (t) => t.type === "special" && t.value === ")"
+        );
+        consumeValue("special", ":");
+        const returnType = parseType();
+        consumeValue("special", "=");
+        const token = currentToken();
 
-        if (idToken.type === "alpha") {
-            const name = idToken.value;
+        let body: Block | undefined;
+
+        if (token.type === "indent") {
+            body = parseBlock();
+        } else if (token.type === "newline") {
             index++;
-            consumeValue("special", "(");
-            const typedParameters = parseSeparatedList(
-                parseTypedParameter,
-                (t) => t.type === "special" && t.value === ",",
-                (t) => t.type === "special" && t.value === ")"
-            );
-            consumeValue("special", ":");
-            const returnType = parseType();
-            consumeValue("special", "=");
-            const token = currentToken();
-
-            let body: Block | undefined;
-
-            if (token.type === "indent") {
-                body = parseBlock();
-            } else if (token.type === "newline") {
-                index++;
-                body = {
-                    type: "block",
-                    statements: [],
-                };
-            } else {
-                body = {
-                    type: "block",
-                    statements: [parseStatement()],
-                };
-            }
-            return {
-                type: "function-declaration",
-                name,
-                typedParameters,
-                returnType,
-                body,
+            body = {
+                type: "block",
+                statements: [],
             };
         } else {
-            return error("fun name should be an alpha");
+            body = {
+                type: "block",
+                statements: [parseStatement()],
+            };
         }
+        return {
+            type: "function-declaration",
+            name,
+            typedParameters,
+            returnType,
+            body,
+        };
     };
 
     const parseBlock = (): Block => {
@@ -284,20 +268,14 @@ export const parse = (source: string, tokens: Token[]) => {
     };
 
     const parseTypedParameter = (): TypedParameter => {
-        const token = currentToken();
-        if (token.type === "alpha") {
-            const name = token.value;
-            index++;
-            consumeValue("special", ":");
-            const parameterType = parseType();
-            return {
-                type: "typed-parameter",
-                name,
-                parameterType,
-            };
-        } else {
-            return error("parameter must be alpha!!");
-        }
+        const name = parseId();
+        consumeValue("special", ":");
+        const parameterType = parseType();
+        return {
+            type: "typed-parameter",
+            name,
+            parameterType,
+        };
     };
 
     /**
@@ -352,11 +330,8 @@ export const parse = (source: string, tokens: Token[]) => {
                 }
                 break;
             case "alpha":
-                index++;
-                expression = {
-                    type: "id",
-                    value: token.value,
-                };
+            case "raw-id":
+                expression = parseId();
                 break;
         }
 
@@ -437,6 +412,19 @@ export const parse = (source: string, tokens: Token[]) => {
         }
 
         return expression;
+    };
+
+    const parseId = (): Identifier => {
+        const token = currentToken();
+        if (token.type === "alpha" || token.type === "raw-id") {
+            index++;
+            return {
+                type: "id",
+                value: token.value,
+            };
+        } else {
+            return error("invalid identifier.");
+        }
     };
 
     return parseProgram();

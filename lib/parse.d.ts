@@ -6,7 +6,7 @@ export type Program = {
 export type Statement = FunctionDeclaration | VariableDeclaration | Expression;
 export type FunctionDeclaration = {
     type: "function-declaration";
-    name: string;
+    name: Identifier;
     typedParameters: TypedParameter[];
     returnType: Type;
     body: Block;
@@ -14,14 +14,14 @@ export type FunctionDeclaration = {
 export type VariableDeclaration = {
     type: "variable-declaration";
     keywords: Keyword[];
-    name: string;
+    name: Identifier;
     variableType: Type;
     rhs: Expression;
 };
 export type Keyword = never;
 export type TypedParameter = {
     type: "typed-parameter";
-    name: string;
+    name: Identifier;
     parameterType: Type;
 };
 export type Type = {
