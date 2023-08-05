@@ -1,9 +1,17 @@
 export type Token = {
+    index: number;
+} & ({
     type: "alpha";
-    char: string;
+    value: string;
 } | {
     type: "special";
-    char: string;
+    value: string;
+} | {
+    type: "string-literal";
+    value: string;
+} | {
+    type: "number-literal";
+    value: string;
 } | {
     type: "whitespace";
 } | {
@@ -12,5 +20,5 @@ export type Token = {
     type: "indent";
 } | {
     type: "dedent";
-};
+});
 export declare const lex: (source: string) => Token[];
