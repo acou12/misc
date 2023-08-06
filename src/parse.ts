@@ -45,7 +45,8 @@ export type Expression =
     | NumberLiteral
     | StringLiteral
     | FunctionApplication
-    | Identifier;
+    | Identifier
+    | AnonymousFunction;
 
 export type NumberLiteral = {
     type: "number-literal";
@@ -66,6 +67,13 @@ export type FunctionApplication = {
 export type Block = {
     type: "block";
     statements: Statement[];
+};
+
+export type AnonymousFunction = {
+    type: "anonymous-function";
+    typedParameters: TypedParameter[];
+    returnType: Type;
+    body: Block;
 };
 
 // type Either<A, B> =
@@ -156,7 +164,13 @@ export const parse = (source: string, tokens: Token[]) => {
         } else {
             let expression = parseExpression();
             if (hasTokens()) {
-                consumeType("newline");
+                const token = currentToken();
+                if (!(token.type === "newline" || token.type === "dedent")) {
+                    return error("invalid end of statement.");
+                }
+                if (token.type === "newline") {
+                    index++;
+                }
             }
             return expression;
         }
@@ -327,6 +341,8 @@ export const parse = (source: string, tokens: Token[]) => {
                     index++;
                     expression = parseExpression();
                     consumeValue("special", ")");
+                } else if (token.value === "\\") {
+                    expression = parseAnonymousFunction();
                 }
                 break;
             case "alpha":
@@ -425,6 +441,29 @@ export const parse = (source: string, tokens: Token[]) => {
         } else {
             return error("invalid identifier.");
         }
+    };
+
+    const parseAnonymousFunction = (): AnonymousFunction => {
+        index++; // skip "\"
+
+        const typedParameters = parseSeparatedList(
+            parseTypedParameter,
+            (t) => t.type === "special" && t.value === ",",
+            (t) => t.type === "special" && t.value === ":"
+        );
+
+        const returnType = parseType();
+
+        consumeValue("special", "=");
+
+        const body = parseBlock();
+
+        return {
+            type: "anonymous-function",
+            typedParameters,
+            returnType,
+            body,
+        };
     };
 
     return parseProgram();

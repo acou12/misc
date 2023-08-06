@@ -35,7 +35,7 @@ export type Identifier = {
     type: "id";
     value: string;
 };
-export type Expression = NumberLiteral | StringLiteral | FunctionApplication | Identifier;
+export type Expression = NumberLiteral | StringLiteral | FunctionApplication | Identifier | AnonymousFunction;
 export type NumberLiteral = {
     type: "number-literal";
     value: number;
@@ -52,5 +52,11 @@ export type FunctionApplication = {
 export type Block = {
     type: "block";
     statements: Statement[];
+};
+export type AnonymousFunction = {
+    type: "anonymous-function";
+    typedParameters: TypedParameter[];
+    returnType: Type;
+    body: Block;
 };
 export declare const parse: (source: string, tokens: Token[]) => Program;
