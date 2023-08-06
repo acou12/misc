@@ -170,3 +170,10 @@ def multiline_stuff:
         4, 5, 6
  
     print(array)
+
+def random:
+    # currying?
+    def test(a: int, b: int)(c: int, d: int): int = (a + b) * (c + d)
+
+    let f = test(1, 2) # : (int, int) -> (int)
+    let x = f(3, 4) # : int == 21
