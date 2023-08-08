@@ -1,18 +1,24 @@
+import { type } from "os";
 import { Token } from "./lex";
 import { isOperator } from "./util";
+import { nextTick } from "process";
 
 export type Program = {
     type: "program";
     statements: Statement[];
 };
 
-export type Statement = FunctionDeclaration | VariableDeclaration | Expression;
+export type Statement =
+    | FunctionDeclaration
+    | VariableDeclaration
+    | Expression
+    | Reassignment;
 
 export type FunctionDeclaration = {
     type: "function-declaration";
     name: Identifier;
     typedParameters: TypedParameter[];
-    returnType: Type;
+    returnType?: Type;
     body: Block;
 };
 
@@ -20,7 +26,7 @@ export type VariableDeclaration = {
     type: "variable-declaration";
     keywords: Keyword[];
     name: Identifier;
-    variableType: Type;
+    variableType?: Type;
     rhs: Expression;
 };
 
@@ -29,12 +35,10 @@ export type Keyword = never;
 export type TypedParameter = {
     type: "typed-parameter";
     name: Identifier;
-    parameterType: Type;
+    parameterType?: Type;
 };
 
-export type Type = {
-    type: "type";
-} & ({ typeType: "int" } | { typeType: "str" });
+export type Type = Expression;
 
 export type Identifier = {
     type: "id";
@@ -46,7 +50,14 @@ export type Expression =
     | StringLiteral
     | FunctionApplication
     | Identifier
-    | AnonymousFunction;
+    | AnonymousFunction
+    | ExpressionBlock;
+
+export type Reassignment = {
+    type: "reassignment";
+    name: Identifier;
+    rhs: Expression;
+};
 
 export type NumberLiteral = {
     type: "number-literal";
@@ -69,10 +80,15 @@ export type Block = {
     statements: Statement[];
 };
 
+export type ExpressionBlock = {
+    type: "expression-block";
+    statements: Statement[];
+};
+
 export type AnonymousFunction = {
     type: "anonymous-function";
     typedParameters: TypedParameter[];
-    returnType: Type;
+    returnType?: Type;
     body: Block;
 };
 
@@ -161,6 +177,13 @@ export const parse = (source: string, tokens: Token[]) => {
             return parseVariableDeclaration();
         } else if (token.type === "alpha" && token.value === "def") {
             return parseFunctionDeclaration();
+        } else if (
+            token.type === "alpha" &&
+            index + 1 < tokens.length &&
+            tokens[index + 1].type === "special" &&
+            (tokens[index + 1] as Token & { type: "special" }).value === "="
+        ) {
+            return parseReassignment({ type: "id", value: token.value });
         } else {
             let expression = parseExpression();
             if (hasTokens()) {
@@ -176,12 +199,40 @@ export const parse = (source: string, tokens: Token[]) => {
         }
     };
 
+    const parseReassignment = (id: Identifier): Reassignment => {
+        index += 2;
+        const expression = parseExpression();
+        if (hasTokens()) {
+            if (
+                currentToken().type === "newline" ||
+                currentToken().type === "dedent"
+            ) {
+                index++;
+            } else {
+                error("your variable assigment did not end in a nice manner.");
+            }
+        }
+        return {
+            type: "reassignment",
+            name: id,
+            rhs: expression,
+        };
+    };
+
+    const hasType = <T extends "special" | "alpha">(type: T, value: string) => {
+        const token = currentToken();
+        return token.type === type && token.value === value;
+    };
+
     const parseVariableDeclaration = (): VariableDeclaration => {
         index++; // skip "let"
 
         const name = parseId();
-        consumeValue("special", ":");
-        const variableType = parseType();
+        let variableType: Type | undefined = undefined;
+        if (hasType("special", ":")) {
+            index++;
+            variableType = parseType();
+        }
         consumeValue("special", "=");
         const rhs = parseExpression();
         if (hasTokens()) {
@@ -204,38 +255,43 @@ export const parse = (source: string, tokens: Token[]) => {
     };
 
     const parseType = (): Type => {
-        const token = currentToken();
-
-        if (token.type === "alpha") {
-            switch (token.value) {
-                case "int":
-                case "str":
-                    index++;
-                    return {
-                        type: "type",
-                        typeType: token.value,
-                    };
-                default:
-                    return error("invalid type.");
-            }
-        } else {
-            return error("type is not an alpha.");
-        }
+        return parseExpression(["[", "]"]);
     };
 
     const parseFunctionDeclaration = (): FunctionDeclaration => {
         index++; // skip "def"
 
         const name = parseId();
-        consumeValue("special", "(");
-        const typedParameters = parseSeparatedList(
-            parseTypedParameter,
-            (t) => t.type === "special" && t.value === ",",
-            (t) => t.type === "special" && t.value === ")"
-        );
+
+        let typedParameters: TypedParameter[] = [];
+
+        const possiblyParameterOpen = currentToken();
+        if (
+            possiblyParameterOpen.type === "special" &&
+            possiblyParameterOpen.value === "("
+        ) {
+            index++;
+            typedParameters = parseSeparatedList(
+                parseTypedParameter,
+                (t) => t.type === "special" && t.value === ",",
+                (t) => t.type === "special" && t.value === ")"
+            );
+        }
+
+        const typeIdentificationToken = currentToken();
+
+        let returnType: Type | undefined = undefined;
+
+        if (
+            typeIdentificationToken.type === "special" &&
+            typeIdentificationToken.value === "-"
+        ) {
+            consumeValue("special", "-");
+            consumeValue("special", ">");
+            returnType = parseType();
+        }
+
         consumeValue("special", ":");
-        const returnType = parseType();
-        consumeValue("special", "=");
         const token = currentToken();
 
         let body: Block | undefined;
@@ -267,7 +323,11 @@ export const parse = (source: string, tokens: Token[]) => {
         consumeType("indent");
         const statements: Statement[] = [];
         let token = currentToken();
-        while (hasTokens() && token.type !== "dedent") {
+        while (
+            hasTokens() &&
+            token.type !== "dedent" &&
+            !(token.type === "special" && token.value === ",")
+        ) {
             const statement = parseStatement();
             statements.push(statement);
             if (hasTokens()) {
@@ -281,14 +341,13 @@ export const parse = (source: string, tokens: Token[]) => {
         };
     };
 
-    const parseTypedParameter = (): TypedParameter => {
+    const parseTypedParameter = (typed = true): TypedParameter => {
         const name = parseId();
-        consumeValue("special", ":");
-        const parameterType = parseType();
+        const token = currentToken();
         return {
             type: "typed-parameter",
             name,
-            parameterType,
+            parameterType: typed ? (index++, parseType()) : undefined,
         };
     };
 
@@ -319,7 +378,10 @@ export const parse = (source: string, tokens: Token[]) => {
         }
     };
 
-    const parseExpressionWithCalls = (): Expression => {
+    const parseExpressionWithCalls = ([startFunctionChar, endFunctionChar]: [
+        string,
+        string
+    ]): Expression => {
         const token = currentToken();
 
         let expression: Expression | undefined = undefined;
@@ -337,12 +399,17 @@ export const parse = (source: string, tokens: Token[]) => {
                 };
                 break;
             case "special":
-                if (token.value === "(") {
+                if (token.value === startFunctionChar) {
                     index++;
-                    expression = parseExpression();
-                    consumeValue("special", ")");
+                    expression = parseExpression([
+                        startFunctionChar,
+                        endFunctionChar,
+                    ]);
+                    consumeValue("special", endFunctionChar);
                 } else if (token.value === "\\") {
                     expression = parseAnonymousFunction();
+                } else if (token.value === ":") {
+                    expression = parseExpressionBlock();
                 }
                 break;
             case "alpha":
@@ -360,13 +427,13 @@ export const parse = (source: string, tokens: Token[]) => {
             while (
                 hasTokens() &&
                 (token = currentToken()).type === "special" &&
-                token.value === "("
+                token.value === startFunctionChar
             ) {
                 index++;
                 const parameters = parseSeparatedList(
                     parseExpression,
                     (t) => t.type === "special" && t.value === ",",
-                    (t) => t.type === "special" && t.value === ")"
+                    (t) => t.type === "special" && t.value === endFunctionChar
                 );
                 expression = {
                     type: "function-application",
@@ -377,6 +444,28 @@ export const parse = (source: string, tokens: Token[]) => {
         }
 
         return expression;
+    };
+
+    const parseExpressionBlock = (): ExpressionBlock => {
+        index++; // skip ":"
+
+        const token = currentToken();
+
+        let body;
+
+        if (token.type === "indent") {
+            body = parseBlock();
+        } else {
+            body = {
+                type: "block",
+                statements: [parseStatement()],
+            };
+        }
+
+        return {
+            type: "expression-block",
+            statements: body.statements,
+        };
     };
 
     const parseOperator = (): string => {
@@ -396,8 +485,10 @@ export const parse = (source: string, tokens: Token[]) => {
         return operator;
     };
 
-    const parseExpression = (): Expression => {
-        let expression = parseExpressionWithCalls();
+    const parseExpression = (
+        functionChar = ["(", ")"] as [string, string]
+    ): Expression => {
+        let expression = parseExpressionWithCalls(functionChar);
 
         let token: Token;
         let firstOperator: string | undefined;
@@ -416,7 +507,7 @@ export const parse = (source: string, tokens: Token[]) => {
                     );
                 }
             }
-            const rightExpression = parseExpressionWithCalls();
+            const rightExpression = parseExpressionWithCalls(functionChar);
             expression = {
                 type: "function-application",
                 function: {
@@ -446,17 +537,44 @@ export const parse = (source: string, tokens: Token[]) => {
     const parseAnonymousFunction = (): AnonymousFunction => {
         index++; // skip "\"
 
-        const typedParameters = parseSeparatedList(
-            parseTypedParameter,
-            (t) => t.type === "special" && t.value === ",",
-            (t) => t.type === "special" && t.value === ":"
-        );
+        const token = currentToken();
 
-        const returnType = parseType();
+        let typedParameters;
+        let returnType = undefined;
 
-        consumeValue("special", "=");
+        if (token.type === "special" && token.value === "(") {
+            index++;
+            typedParameters = parseSeparatedList(
+                parseTypedParameter,
+                (t) => t.type === "special" && t.value === ",",
+                (t) => t.type === "special" && t.value === ")"
+            );
+            consumeValue("special", "-");
+            consumeValue("special", ">");
+            returnType = parseType();
+            consumeValue("special", ":");
+        } else if (
+            token.type === "alpha" ||
+            (token.type === "special" && token.value === ":")
+        ) {
+            typedParameters = parseSeparatedList(
+                () => parseTypedParameter(false),
+                (t) => t.type === "special" && t.value === ",",
+                (t) => t.type === "special" && t.value === ":"
+            );
+        } else {
+            return error("invalid anonymous function.");
+        }
 
-        const body = parseBlock();
+        const preBlockToken = currentToken();
+
+        let body: Block;
+
+        if (preBlockToken.type === "indent") {
+            body = parseBlock();
+        } else {
+            body = { type: "block", statements: [parseExpression()] };
+        }
 
         return {
             type: "anonymous-function",

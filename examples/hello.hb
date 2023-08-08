@@ -1,11 +1,8 @@
-def main(): int =
-    let x: str = "hello"
-    setTimeout(\: int =
-        print(x)
-    , 1000)
+def factorial(x: int) -> int:
+    if x <= 1:
+        1
+    else:
+        factorial(x - 1) * x
 
-def maintwo(): int =
-    let x: str = "hello"
-    def delayedPrint(): int =
-        print(x)
-    setTimeout(delayedPrint, 1000)
+def main:
+    print(factorial(15))

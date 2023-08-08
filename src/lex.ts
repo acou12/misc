@@ -48,7 +48,7 @@ type Lexer = (
 ) => { tokens: Token[]; newIndex: number; newContext: LexContext } | undefined;
 
 const isAlpha = (char: string) =>
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".includes(char);
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_".includes(char);
 
 const isWhitespace = (char: string) => char === " ";
 

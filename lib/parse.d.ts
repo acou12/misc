@@ -3,39 +3,38 @@ export type Program = {
     type: "program";
     statements: Statement[];
 };
-export type Statement = FunctionDeclaration | VariableDeclaration | Expression;
+export type Statement = FunctionDeclaration | VariableDeclaration | Expression | Reassignment;
 export type FunctionDeclaration = {
     type: "function-declaration";
     name: Identifier;
     typedParameters: TypedParameter[];
-    returnType: Type;
+    returnType?: Type;
     body: Block;
 };
 export type VariableDeclaration = {
     type: "variable-declaration";
     keywords: Keyword[];
     name: Identifier;
-    variableType: Type;
+    variableType?: Type;
     rhs: Expression;
 };
 export type Keyword = never;
 export type TypedParameter = {
     type: "typed-parameter";
     name: Identifier;
-    parameterType: Type;
+    parameterType?: Type;
 };
-export type Type = {
-    type: "type";
-} & ({
-    typeType: "int";
-} | {
-    typeType: "str";
-});
+export type Type = Expression;
 export type Identifier = {
     type: "id";
     value: string;
 };
-export type Expression = NumberLiteral | StringLiteral | FunctionApplication | Identifier | AnonymousFunction;
+export type Expression = NumberLiteral | StringLiteral | FunctionApplication | Identifier | AnonymousFunction | ExpressionBlock;
+export type Reassignment = {
+    type: "reassignment";
+    name: Identifier;
+    rhs: Expression;
+};
 export type NumberLiteral = {
     type: "number-literal";
     value: number;
@@ -53,10 +52,14 @@ export type Block = {
     type: "block";
     statements: Statement[];
 };
+export type ExpressionBlock = {
+    type: "expression-block";
+    statements: Statement[];
+};
 export type AnonymousFunction = {
     type: "anonymous-function";
     typedParameters: TypedParameter[];
-    returnType: Type;
+    returnType?: Type;
     body: Block;
 };
 export declare const parse: (source: string, tokens: Token[]) => Program;

@@ -1,12 +1,26 @@
-def print_all(list: list[int]):
-    list.for_each \x:
-        x.print()
+def display(list: list[int]):
+    list
+        .map \x:
+            x * 2
+        .filter \x:
+            x >= 0
+        .reverse()
+        .for_each(print)
+        # or
+          .for_each(\x: print(x))
 
-    list.for_each(\x: x.print())
+def comments:
+    # single line comments.
 
-# comments are indentation
-  based, so you can keep going
-  as long as you stay on the same level.
+    # comments are indentation
+      based, so you can keep going
+      as long as you stay on the same level.
+    
+    # or inline:
+
+    let x = 1 + 2 #{ + 3 }# + 4
+
+    #{ nestable, #{ too! }# }#
 
 # equivalent to "if __name__ == '__main__':"
 def main:
@@ -167,13 +181,77 @@ def multiline_stuff:
 
     let array = reverse([
         1, 2, 3,
-        4, 5, 6
+        4, 5, 6,
+    ], axis=3)
+
+    let arr2 = :
+        let temp = (array)
+        for i in indicies(array):
+            temp[i] = temp[^i]
  
     print(array)
 
 def random:
     # currying?
-    def test(a: int, b: int)(c: int, d: int): int = (a + b) * (c + d)
+    def test(a: int, b: int)(c: int, d: int) -> int: (a + b) * (c + d)
 
     let f = test(1, 2) # : (int, int) -> (int)
     let x = f(3, 4) # : int == 21
+
+def main:
+    let x: str = "hello"
+    f(\x, y: x + y, 10, 20)
+
+    f(\(x: int, y: int) -> int: 
+        x + y
+    10, 20)
+
+    f 10, \x, y:
+        print(x, y)
+    
+    f(10, \x, y: print(x, y))
+
+    setInterval:
+        fn = \delta:
+            let x = 10 * delta 
+        delay = 10    
+
+    let list = <10, 20, 30>
+    print(list * 3)
+
+def if(condition: boolean, block:)
+
+def maintwo() -> int:
+    let x: str = "hello"
+    def delayedPrint(): int =
+        print(x)
+    setTimeout(delayedPrint, 1000)
+
+def memory_management: 
+    # todo
+
+def generics:
+    def reverse[A](list[A]:) -> list[A]:
+        # ...
+
+def syntax_overloading:
+    let overload [_](shape=(3, 3), *elements) = matrix(shape)(elements)
+    
+    let a = [1, 2, 3,
+             4, 5, 6,
+             7, 8, 9]
+
+    let b = #
+        1, 2, 3,
+        4, 5, 6,
+        7, 8, 9,
+    
+    let c = [shape(2, 2),
+        1, 2,
+        3, 4,
+    ]
+
+    # operator underloading
+    underload [_]
+
+    print([1, 2, 3])
