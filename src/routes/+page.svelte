@@ -29,9 +29,9 @@
 
 	import { Connection, ConnectionStatus, ConnectionType } from '$lib/connect';
 	import { addTask, deleteTask, updateTask, type Task } from '$lib/tasks';
-	import { _1001, demoEntities, demoPositions } from './data';
+	import { demoEntities, demoPositions } from './data';
 
-	const SCALE = 0.3;
+	let boardScale = 0.3;
 
 	let player: YouTubePlayer;
 	let playing = false;
@@ -131,6 +131,7 @@
 
 		entities = new EntityArray(JSON.parse(localStorage.getItem('entities')!));
 		// entities = new EntityArray(demoEntities);
+		// saveEntities();
 
 		entities.on('add', ({ entity }) => {
 			positions[entity.id] = randomPosition();
@@ -172,8 +173,8 @@
 		addEvent('mousedown', (e) => {
 			for (const entity of $entities) {
 				const position = positions[entity.id];
-				const clickX = (e.clientX - songsElement.getBoundingClientRect().left) / SCALE;
-				const clickY = (e.clientY - songsElement.getBoundingClientRect().top) / SCALE;
+				const clickX = (e.clientX - songsElement.getBoundingClientRect().left) / boardScale;
+				const clickY = (e.clientY - songsElement.getBoundingClientRect().top) / boardScale;
 
 				const entitySize = entity.type === 'song' ? 100 : 200;
 				const entityRadius = entitySize / 2;
@@ -225,16 +226,36 @@
 			}
 		});
 
+		let mousePos = { x: 0, y: 0 };
+
 		addEvent('mousemove', (e) => {
 			if (draggingId !== undefined) {
-				positions[draggingId].x += e.movementX / SCALE;
-				positions[draggingId].y += e.movementY / SCALE;
+				positions[draggingId].x += e.movementX / boardScale;
+				positions[draggingId].y += e.movementY / boardScale;
 				debouncedSaveLocations();
 			} else if (panning) {
 				for (const song of $entities) {
-					positions[song.id].x += e.movementX / SCALE;
-					positions[song.id].y += e.movementY / SCALE;
+					positions[song.id].x += e.movementX / boardScale;
+					positions[song.id].y += e.movementY / boardScale;
 					debouncedSaveLocations();
+				}
+			}
+			mousePos.x = e.clientX;
+			mousePos.y = e.clientY;
+		});
+
+		addEvent('wheel', (e) => {
+			if (e.deltaY < 0) {
+				boardScale *= 1.05;
+				for (const entity of $entities) {
+					positions[entity.id].x -= (mousePos.x * 0.05) / boardScale;
+					positions[entity.id].y -= (mousePos.y * 0.05) / boardScale;
+				}
+			} else {
+				boardScale /= 1.05;
+				for (const entity of $entities) {
+					positions[entity.id].x += (mousePos.x * 0.05) / boardScale;
+					positions[entity.id].y += (mousePos.y * 0.05) / boardScale;
 				}
 			}
 		});
@@ -276,23 +297,6 @@
 				}
 			);
 			connection.init();
-		})();
-
-		(async () => {
-			let i = 0;
-			for (const [artist, name] of _1001) {
-				if ($entities.some((entity) => entity.entity.artistName === artist)) {
-					i++;
-					console.log(i);
-				}
-				// const results = await search(name);
-				// if (results.length > 0) {
-				// 	const result = results[0];
-				// addItunesEntity(result, (n, total) => {
-				// 	console.log(`${result.collectionName} [${n} / ${total}]`);
-				// });
-				// }
-			}
 		})();
 
 		return () => cleanups.forEach((callback) => callback());
@@ -385,7 +389,7 @@
 		localStorage.setItem('positionmap', JSON.stringify(positions));
 	};
 
-	const debouncedSaveLocations = debounce(saveLocations, 5000);
+	const debouncedSaveLocations = debounce(saveLocations, 1000);
 
 	const saveEntities = () => {
 		localStorage.setItem('entities', JSON.stringify($entities));
@@ -529,7 +533,7 @@
 	<input type="text" placeholder="add song: enter a url..." bind:value={newSongInput} />
 </form>
 
-<div class="songs" style="transform: scale({SCALE});">
+<div class="songs" style="transform: scale({boardScale});">
 	<SongVis {entities} {positions} {connections} {draggingId} {currentYoutubeId} />
 </div>
 
