@@ -1,43 +1,51 @@
 <script lang="ts">
+	import type { Writable } from 'svelte/store';
 	import { fade } from 'svelte/transition';
-	import { getEntityName, entitySongs, EntityArray } from './entity';
+	import {
+		entityById,
+		type Entity,
+		type EntityId,
+		type SongId,
+		songById,
+		type Song
+	} from './entity';
 
-	export let entities: EntityArray;
-	export let id: number;
-	export let currentYoutubeId: string | undefined;
+	export let entities: Writable<Entity[]>;
+	export let songs: Writable<Song[]>;
+	export let id: EntityId;
+	export let currentlyPlayingSong: SongId | undefined;
 	export let deleteMe: () => void;
-	export let setPlayback: (youtubeId: string, sendToPeers?: boolean) => Promise<void>;
+	export let setPlayback: (songId: SongId) => Promise<void>;
 
-	$: entity = entities.getEntity(id);
+	$: entity = entityById($entities, id);
 </script>
 
-<div class="track-listing" transition:fade={{}}>
-	<img
-		src={$entity.entity.artworkUrl100}
-		alt={$entity.entity.artistName + ' - ' + getEntityName($entity)}
-	/>
+<div class="track-listing">
+	<img src={entity.artworkUrl} alt={entity.artist + ' - ' + entity.name} />
 	<div class="text">
 		<h2>
-			{getEntityName($entity)}
+			{entity.name}
 		</h2>
 		<h3>
-			{$entity.entity.artistName}
+			{entity.artist}
 		</h3>
 		<div class="controls">
 			<button on:click={deleteMe}>Delete</button>
 		</div>
 		<hr />
-		{#each entitySongs($entity) as song, i (song.id)}
-			<div class="song-outer">
-				<button
-					class="song"
-					class:selected={song.youtubeId === currentYoutubeId}
-					on:click={() => setPlayback(song.youtubeId)}
-				>
-					{i + 1}. {song.entity.trackName}
-				</button>
-			</div>
-		{/each}
+		{#if entity.type === 'album'}
+			{#each entity.songs as songId, i (songId)}
+				<div class="song-outer">
+					<button
+						class="song"
+						class:selected={songId === currentlyPlayingSong}
+						on:click={() => setPlayback(songId)}
+					>
+						{i + 1}. {songById($songs, songId).name}
+					</button>
+				</div>
+			{/each}
+		{/if}
 	</div>
 </div>
 

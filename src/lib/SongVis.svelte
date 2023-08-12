@@ -1,21 +1,15 @@
 <script lang="ts">
-	import { getEntityName, type Entity, type Position, type SongData, EntityArray } from './entity';
-	import { fade, scale } from 'svelte/transition';
+	import type { Writable } from 'svelte/store';
+	import type { Entity, Song, SongId } from './entity';
+	import { fade } from 'svelte/transition';
+	import type { Position } from './visual';
 
-	export let entities: EntityArray;
-	export let positions: Record<number, Position>;
+	export let songs: Writable<Song[]>;
+	export let entities: Writable<Entity[]>;
+	export let positions: Writable<Record<number, Position>>;
 	export let connections: [number, number][];
 	export let draggingId: number | undefined;
-	export let currentYoutubeId: string | undefined;
-
-	$: currentEntityId =
-		currentYoutubeId === undefined
-			? undefined
-			: $entities.find((e) =>
-					e.type === 'song'
-						? e.youtubeId === currentYoutubeId
-						: e.songs.some((s) => s.youtubeId === currentYoutubeId)
-			  )!.id;
+	export let currentlyPlayingSong: SongId | undefined;
 
 	const distance = (connection: [number, number], positions: Record<number, Position>) => {
 		const p1 = positions[connection[0]];
@@ -34,10 +28,10 @@
 	<div class="connection-wrap">
 		<div
 			class="connection"
-			style="transform: translate({positions[connection[0]].x}px, {positions[connection[0]]
-				.y}px) rotate({angle(connection, positions)}rad); width: {distance(
+			style="transform: translate({$positions[connection[0]].x}px, {$positions[connection[0]]
+				.y}px) rotate({angle(connection, $positions)}rad); width: {distance(
 				connection,
-				positions
+				$positions
 			)}px; animation-delay: {i * 0.02}s;"
 			out:fade={{ duration: 200 }}
 		/>
@@ -46,16 +40,19 @@
 {#each $entities as entity (entity.id)}
 	<div class="img-wrapper">
 		<img
-			src={entity.entity.artworkUrl100}
-			alt="{entity.entity.artistName} - {getEntityName(entity)}"
+			src={entity.artworkUrl}
+			alt="{entity.artist} - {entity.name}"
 			draggable="false"
 			class="entity"
-			class:song={entity.type === 'song'}
+			class:song={entity.type === 'single'}
 			class:album={entity.type === 'album'}
-			style="transform: translate(calc({positions[entity.id].x}px - 50%), calc({positions[entity.id]
-				.y}px - 50%)); "
+			style="transform: translate(calc({$positions[entity.id].x}px - 50%), calc({$positions[
+				entity.id
+			].y}px - 50%)); "
 			class:selected={draggingId === entity.id}
-			class:playing={entity.id === currentEntityId}
+			class:playing={entity.type === 'single'
+				? entity.songId === currentlyPlayingSong
+				: entity.songs.some((songId) => songId === currentlyPlayingSong)}
 		/>
 	</div>
 {/each}
@@ -96,6 +93,7 @@
 		user-select: none;
 		transition: outline 0.2s;
 		outline: solid transparent 0px;
+		object-fit: cover;
 	}
 
 	.song {
