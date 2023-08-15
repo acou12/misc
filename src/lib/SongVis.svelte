@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Writable } from 'svelte/store';
 	import type { Entity, Song, SongId } from './entity';
-	import { fade } from 'svelte/transition';
+	import { fade, scale } from 'svelte/transition';
 	import type { Position } from './visual';
 
 	export let songs: Writable<Song[]>;
@@ -40,6 +40,7 @@
 {#each $entities as entity (entity.id)}
 	<div class="img-wrapper">
 		<img
+			in:scale={{}}
 			src={entity.artworkUrl}
 			alt="{entity.artist} - {entity.name}"
 			draggable="false"
@@ -72,19 +73,13 @@
 
 	@keyframes scalein {
 		from {
-			transform: scaleX(0) scaleY(0);
+			opacity: 0;
 		}
 
 		to {
-			transform: scaleX(1) scaleY(1);
+			opacity: 1;
 		}
 	}
-
-	.img-wrapper {
-		transform-origin: center;
-		animation: scalein 1s both;
-	}
-
 	.entity {
 		position: absolute;
 		background-color: black;

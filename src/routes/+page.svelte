@@ -30,8 +30,7 @@
 	import type { YoutubePlaylistInfoResponse } from './info/+server';
 	import { smartSyncStore } from '$lib/store';
 	import { randomId } from '$lib/util';
-
-	let boardScale = 0.3;
+	import Graph from '$lib/Graph.svelte';
 
 	let player: YouTubePlayer;
 	let playing = false;
@@ -50,19 +49,17 @@
 
 	let currentlyPlayingSong: SongId | undefined;
 
-	let panning = false;
-
 	let tasks: Task[] = [];
+
+	let viewType: 'graph' | 'list' = 'graph';
 
 	const randomPosition = (): Position => ({
 		x: Math.random() * 1000,
 		y: Math.random() * 1000
 	});
 
-	let draggingId: number | undefined = undefined;
-
 	onMount(() => {
-		let cleanups: (() => void)[] = [];
+		const cleanups: (() => void)[] = [];
 
 		let setAndLaterClearInterval: typeof setInterval = (...params) => {
 			let interval = setInterval(...params);
@@ -92,99 +89,6 @@
 				$positions[entity.id] = randomPosition();
 			}
 		}
-
-		const songsElement = document.querySelector('.songs') as HTMLDivElement;
-
-		const addEvent = <K extends keyof DocumentEventMap>(
-			k: K,
-			callback: (ev: DocumentEventMap[K]) => void
-		) => {
-			document.addEventListener(k, callback);
-			cleanups.push(() => document.removeEventListener(k, callback));
-		};
-
-		addEvent('contextmenu', (e) => e.preventDefault());
-
-		addEvent('mousedown', (e) => {
-			for (const entity of $entities) {
-				const position = $positions[entity.id];
-				const clickX = (e.clientX - songsElement.getBoundingClientRect().left) / boardScale;
-				const clickY = (e.clientY - songsElement.getBoundingClientRect().top) / boardScale;
-
-				const entitySize = entity.type === 'single' ? 100 : 200;
-				const entityRadius = entitySize / 2;
-
-				if (
-					position.x - entityRadius <= clickX &&
-					clickX <= position.x + entityRadius &&
-					position.y - entityRadius <= clickY &&
-					clickY <= position.y + entityRadius
-				) {
-					if (e.button === 2) {
-						infoId = entity.id;
-						e.preventDefault();
-					} else {
-						switch (guiMode) {
-							case GuiMode.PLAY:
-								if (entity.type === 'single') {
-									setPlayback(entity.songId);
-								} else if (entity.type === 'album' && entity.songs.length > 0) {
-									setPlayback(songById($songs, entity.songs[0]).id);
-								}
-								queue = [];
-								break;
-							case GuiMode.EDIT:
-								draggingId = entity.id;
-								break;
-						}
-					}
-				}
-			}
-			if (draggingId === undefined) {
-				panning = true;
-			}
-		});
-
-		addEvent('mouseup', (e) => {
-			if (draggingId !== undefined) {
-				draggingId = undefined;
-			}
-			if (panning) {
-				panning = false;
-			}
-		});
-
-		let mousePos = { x: 0, y: 0 };
-
-		addEvent('mousemove', (e) => {
-			if (draggingId !== undefined) {
-				$positions[draggingId].x += e.movementX / boardScale;
-				$positions[draggingId].y += e.movementY / boardScale;
-			} else if (panning) {
-				for (const song of $entities) {
-					$positions[song.id].x += e.movementX / boardScale;
-					$positions[song.id].y += e.movementY / boardScale;
-				}
-			}
-			mousePos.x = e.clientX;
-			mousePos.y = e.clientY;
-		});
-
-		addEvent('wheel', (e) => {
-			if (e.deltaY < 0) {
-				boardScale *= 1.05;
-				for (const entity of $entities) {
-					$positions[entity.id].x -= (mousePos.x * 0.05) / boardScale;
-					$positions[entity.id].y -= (mousePos.y * 0.05) / boardScale;
-				}
-			} else {
-				boardScale /= 1.05;
-				for (const entity of $entities) {
-					$positions[entity.id].x += (mousePos.x * 0.05) / boardScale;
-					$positions[entity.id].y += (mousePos.y * 0.05) / boardScale;
-				}
-			}
-		});
 
 		return () => cleanups.forEach((callback) => callback());
 	});
@@ -316,13 +220,44 @@
 
 <div id="player" />
 
-<form on:submit|preventDefault={addNewSong}>
-	<input type="text" placeholder="add album: enter a youtube link..." bind:value={newSongInput} />
-</form>
+<button on:click={() => (viewType = viewType === 'graph' ? 'list' : 'graph')}> switch view </button>
 
-<div class="songs" style="transform: scale({boardScale});">
-	<SongVis {songs} {entities} {positions} {connections} {draggingId} {currentlyPlayingSong} />
+<div class="view">
+	{#if viewType === 'list'}
+		<form on:submit|preventDefault={addNewSong}>
+			<input
+				type="text"
+				placeholder="add album: enter a youtube link..."
+				bind:value={newSongInput}
+			/>
+		</form>
+	{:else}
+		<Graph
+			{songs}
+			{entities}
+			{positions}
+			{connections}
+			{currentlyPlayingSong}
+			{setPlayback}
+			{infoId}
+			bind:guiMode
+		/>
+	{/if}
 </div>
+
+{#if infoId !== undefined}
+	<TrackListing
+		{songs}
+		{entities}
+		deleteMe={() => {
+			$entities = $entities.filter((entity) => entity.id !== infoId);
+			infoId = undefined;
+		}}
+		id={infoId}
+		{setPlayback}
+		{currentlyPlayingSong}
+	/>
+{/if}
 
 <div class="tasks">
 	{#each tasks as task, i}
@@ -359,21 +294,11 @@
 	{setPlaybackTime}
 />
 
-{#if infoId !== undefined}
-	<TrackListing
-		{songs}
-		{entities}
-		deleteMe={() => {
-			$entities = $entities.filter((entity) => entity.id !== infoId);
-			infoId = undefined;
-		}}
-		id={infoId}
-		{setPlayback}
-		{currentlyPlayingSong}
-	/>
-{/if}
-
 <style>
+	.song-list {
+		overflow: scroll;
+	}
+
 	#player {
 		display: none;
 	}
@@ -383,9 +308,17 @@
 		color: white;
 	}
 
-	.songs {
+	.outer-songs {
 		position: relative;
+	}
+
+	.songs {
+		position: absolute;
 		transform-origin: top left;
+		top: 0;
+		left: 0;
+		width: 10000vw; /* :/ */
+		height: 10000vh;
 	}
 
 	.new-song {
