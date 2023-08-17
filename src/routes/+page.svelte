@@ -13,24 +13,18 @@
 	import type { YouTubePlayer } from 'youtube-player/dist/types';
 
 	import Controls from '$lib/Controls.svelte';
-	import SongVis from '$lib/SongVis.svelte';
 
-	import {
-		songById,
-		type Entity,
-		type Song,
-		type SongId,
-		entityById,
-		type Collection
-	} from '$lib/entity';
+	import { songById, type Entity, type Song, type SongId, type Collection } from '$lib/entity';
 	import { addTask, deleteTask, updateTask, type Task } from '$lib/tasks';
 	import type { Position } from '$lib/visual';
 	import TrackListing from '$lib/TrackListing.svelte';
 	import type { YoutubePlaylistResponse } from './list/+server';
 	import type { YoutubePlaylistInfoResponse } from './info/+server';
 	import { smartSyncStore } from '$lib/store';
-	import { randomId } from '$lib/util';
+	import { randomId, randomPosition } from '$lib/util';
 	import Graph from '$lib/Graph.svelte';
+	import List from '$lib/List.svelte';
+	import { demoEntities, demoPositions } from './data';
 
 	let player: YouTubePlayer;
 	let playing = false;
@@ -42,6 +36,7 @@
 	let songs: Writable<Song[]> = writable([]);
 	let entities: Writable<Entity[]> = writable([]);
 	let positions: Writable<Record<number, Position>> = writable({});
+	let boardScale: Writable<number> = writable(0);
 
 	let queue: SongId[] = [];
 
@@ -49,15 +44,9 @@
 
 	let currentlyPlayingSong: SongId | undefined;
 
-	let tasks: Task[] = [];
+	let tasks: Writable<Task[]> = writable([]);
 
 	let viewType: 'graph' | 'list' = 'graph';
-
-	const randomPosition = (): Position => ({
-		x: Math.random() * 1000,
-		y: Math.random() * 1000
-	});
-
 	onMount(() => {
 		const cleanups: (() => void)[] = [];
 
@@ -83,12 +72,24 @@
 		songs = smartSyncStore('velvet-songs', []);
 		entities = smartSyncStore('velvet-entities', []);
 		positions = smartSyncStore('velvet-positions', {}, 1000);
+		boardScale = smartSyncStore('velvet-scale', 0.3, 1000);
 
 		for (const entity of $entities) {
 			if ($positions[entity.id] === undefined) {
 				$positions[entity.id] = randomPosition();
 			}
 		}
+
+		// for (const entity of $entities) {
+		// 	if (entity.type === 'album') {
+		// 		const oldEntity = demoEntities.find(
+		// 			(it) => it.type === 'album' && it.entity.collectionName === entity.name
+		// 		);
+		// 		if (oldEntity !== undefined) {
+		// 			$positions[entity.id] = demoPositions[oldEntity.id];
+		// 		}
+		// 	}
+		// }
 
 		return () => cleanups.forEach((callback) => callback());
 	});
@@ -157,13 +158,13 @@
 		const songUrl = newSongInput;
 		newSongInput = '';
 
-		const [newTasks, taskId] = addTask(tasks, 'Adding...');
-		tasks = newTasks;
+		const [newTasks, taskId] = addTask($tasks, 'Adding...');
+		$tasks = newTasks;
 
 		const FAILED_MESSAGE = 'Add failed. Please enter a link to a youtube playlist.';
 
 		if (!songUrl.includes('?')) {
-			tasks = updateTask(tasks, taskId, FAILED_MESSAGE);
+			$tasks = updateTask($tasks, taskId, FAILED_MESSAGE);
 			return;
 		}
 
@@ -171,7 +172,7 @@
 		const queryParams = new URLSearchParams(queryParamsRaw);
 
 		if (!queryParams.has('list')) {
-			tasks = updateTask(tasks, taskId, FAILED_MESSAGE);
+			$tasks = updateTask($tasks, taskId, FAILED_MESSAGE);
 			return;
 		}
 
@@ -212,7 +213,7 @@
 		$entities = [...$entities, newAlbum];
 		$positions[newAlbum.id] = randomPosition();
 
-		tasks = updateTask(tasks, taskId, `Done! "${newAlbum.name}" has been added.`);
+		$tasks = updateTask($tasks, taskId, `Done! "${newAlbum.name}" has been added.`);
 
 		console.log(listData);
 	};
@@ -220,30 +221,44 @@
 
 <div id="player" />
 
-<button on:click={() => (viewType = viewType === 'graph' ? 'list' : 'graph')}> switch view </button>
-
-<div class="view">
+<div class="view" class:noscroll={viewType === 'graph'}>
 	{#if viewType === 'list'}
-		<form on:submit|preventDefault={addNewSong}>
+		<!-- <form on:submit|preventDefault={addNewSong}>
 			<input
 				type="text"
 				placeholder="add album: enter a youtube link..."
 				bind:value={newSongInput}
 			/>
-		</form>
+		</form> -->
+		<List
+			{songs}
+			{entities}
+			{positions}
+			{connections}
+			{tasks}
+			{setPlayback}
+			bind:currentlyPlayingSong
+			bind:infoId
+			bind:guiMode
+		/>
 	{:else}
 		<Graph
 			{songs}
 			{entities}
 			{positions}
+			{boardScale}
 			{connections}
-			{currentlyPlayingSong}
 			{setPlayback}
-			{infoId}
+			bind:currentlyPlayingSong
+			bind:infoId
 			bind:guiMode
 		/>
 	{/if}
 </div>
+
+<button class="view-switch" on:click={() => (viewType = viewType === 'graph' ? 'list' : 'graph')}>
+	switch view
+</button>
 
 {#if infoId !== undefined}
 	<TrackListing
@@ -260,7 +275,7 @@
 {/if}
 
 <div class="tasks">
-	{#each tasks as task, i}
+	{#each $tasks as task, i}
 		<div class="task" transition:scale={{}}>
 			<div class="message">
 				{@html task.message}
@@ -269,7 +284,7 @@
 			<div class="close">
 				<button
 					on:click={() => {
-						tasks = deleteTask(tasks, task.id);
+						$tasks = deleteTask($tasks, task.id);
 					}}
 				>
 					x
@@ -295,10 +310,6 @@
 />
 
 <style>
-	.song-list {
-		overflow: scroll;
-	}
-
 	#player {
 		display: none;
 	}
@@ -310,15 +321,6 @@
 
 	.outer-songs {
 		position: relative;
-	}
-
-	.songs {
-		position: absolute;
-		transform-origin: top left;
-		top: 0;
-		left: 0;
-		width: 10000vw; /* :/ */
-		height: 10000vh;
 	}
 
 	.new-song {
@@ -354,5 +356,24 @@
 		color: white;
 		border: none;
 		outline: none;
+	}
+
+	.view-switch {
+		position: absolute;
+		top: 0;
+		left: 0;
+	}
+
+	.view {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100vw;
+		height: 100vh;
+		overflow: scroll;
+	}
+
+	.view.noscroll {
+		overflow: clip;
 	}
 </style>

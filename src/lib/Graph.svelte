@@ -6,7 +6,6 @@
 	import { onMount } from 'svelte';
 	import { GuiMode } from '../routes/+page.svelte';
 
-	let boardScale: number;
 	let draggingId: number | undefined;
 	let panning = false;
 
@@ -15,6 +14,7 @@
 	export let songs: Writable<Song[]>;
 	export let entities: Writable<Entity[]>;
 	export let positions: Writable<Record<number, Position>>;
+	export let boardScale: Writable<number>;
 	export let connections: [number, number][];
 	export let currentlyPlayingSong: number | undefined;
 
@@ -48,12 +48,12 @@
 
 		addDocumentEvent('mousemove', (e) => {
 			if (draggingId !== undefined) {
-				$positions[draggingId].x += e.movementX / boardScale;
-				$positions[draggingId].y += e.movementY / boardScale;
+				$positions[draggingId].x += e.movementX / $boardScale;
+				$positions[draggingId].y += e.movementY / $boardScale;
 			} else if (panning) {
 				for (const song of $entities) {
-					$positions[song.id].x += e.movementX / boardScale;
-					$positions[song.id].y += e.movementY / boardScale;
+					$positions[song.id].x += e.movementX / $boardScale;
+					$positions[song.id].y += e.movementY / $boardScale;
 				}
 			}
 			mousePos.x = e.clientX;
@@ -71,10 +71,11 @@
 		addEvent('contextmenu', (e) => e.preventDefault());
 
 		addEvent('mousedown', (e) => {
+			console.log('test');
 			for (const entity of $entities) {
 				const position = $positions[entity.id];
-				const clickX = (e.clientX - songsElement.getBoundingClientRect().left) / boardScale;
-				const clickY = (e.clientY - songsElement.getBoundingClientRect().top) / boardScale;
+				const clickX = (e.clientX - songsElement.getBoundingClientRect().left) / $boardScale;
+				const clickY = (e.clientY - songsElement.getBoundingClientRect().top) / $boardScale;
 
 				const entitySize = entity.type === 'single' ? 100 : 200;
 				const entityRadius = entitySize / 2;
@@ -86,7 +87,11 @@
 					clickY <= position.y + entityRadius
 				) {
 					if (e.button === 2) {
-						infoId = entity.id;
+						if (infoId !== entity.id) {
+							infoId = entity.id;
+						} else {
+							infoId = undefined;
+						}
 						e.preventDefault();
 					} else {
 						switch (guiMode) {
@@ -111,18 +116,19 @@
 
 		addEvent('wheel', (e) => {
 			if (e.deltaY < 0) {
-				boardScale *= 1.05;
+				$boardScale *= 1.05;
 				for (const entity of $entities) {
-					$positions[entity.id].x -= (mousePos.x * 0.05) / boardScale;
-					$positions[entity.id].y -= (mousePos.y * 0.05) / boardScale;
+					$positions[entity.id].x -= (mousePos.x * 0.05) / $boardScale;
+					$positions[entity.id].y -= (mousePos.y * 0.05) / $boardScale;
 				}
 			} else {
-				boardScale /= 1.05;
+				$boardScale /= 1.05;
 				for (const entity of $entities) {
-					$positions[entity.id].x += (mousePos.x * 0.05) / boardScale;
-					$positions[entity.id].y += (mousePos.y * 0.05) / boardScale;
+					$positions[entity.id].x += (mousePos.x * 0.05) / $boardScale;
+					$positions[entity.id].y += (mousePos.y * 0.05) / $boardScale;
 				}
 			}
+			console.log($boardScale);
 		});
 
 		return () => cleanups.forEach((callback) => callback());
@@ -130,7 +136,19 @@
 </script>
 
 <div class="outer-songs">
-	<div class="songs" style="transform: scale({boardScale});">
+	<div class="songs" style="transform: scale({$boardScale});">
 		<SongVis {songs} {entities} {positions} {connections} {draggingId} {currentlyPlayingSong} />
 	</div>
 </div>
+
+<style>
+	.songs {
+		position: absolute;
+		transform-origin: top left;
+		top: 0;
+		left: 0;
+		width: 10000vw; /* :/ */
+		height: 10000vh;
+		overflow: clip;
+	}
+</style>

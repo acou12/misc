@@ -1,4 +1,4 @@
-import type { Entity, Position } from '$lib/entity';
+import type { Entity, Position } from '$lib/entity copy';
 
 export const demoEntities: Entity[] = [
 	{

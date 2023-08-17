@@ -1,14 +1,17 @@
  @import url('https://fonts.googleapis.com/css2?family=REM&display=swap');
 
+ * {
+    font-family: 'REM', sans-serif;
+ }
+
 body {
     font-family: 'REM', sans-serif;
 	background-color: rgb(10, 0, 12);
 	color: white;
-	overflow: clip;
 }
 
 button {
-	background-color: black;
+	background-color: transparent;
 	color: white;
 	border: none;
 	outline: none;
