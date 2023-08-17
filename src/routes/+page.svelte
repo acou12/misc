@@ -24,6 +24,7 @@
 	import { randomId, randomPosition } from '$lib/util';
 	import Graph from '$lib/components/Graph.svelte';
 	import List from '$lib/components/List.svelte';
+	import { demoEntities, demoPositions, demoScale, demoSongs } from './data';
 
 	let player: YouTubePlayer;
 	let playing = false;
@@ -68,10 +69,10 @@
 			}
 		});
 
-		songs = smartSyncStore('velvet-songs', []);
-		entities = smartSyncStore('velvet-entities', []);
-		positions = smartSyncStore('velvet-positions', {}, 1000);
-		boardScale = smartSyncStore('velvet-scale', 0.3, 1000);
+		songs = smartSyncStore('velvet-songs', demoSongs);
+		entities = smartSyncStore('velvet-entities', demoEntities);
+		positions = smartSyncStore('velvet-positions', demoPositions, 1000);
+		boardScale = smartSyncStore('velvet-scale', demoScale, 1000);
 
 		for (const entity of $entities) {
 			if ($positions[entity.id] === undefined) {
