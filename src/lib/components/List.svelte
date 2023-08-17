@@ -9,14 +9,14 @@
 		type Song,
 		type SongId,
 		type Collection
-	} from './entity';
-	import type { Position } from './visual';
-	import type { GuiMode } from '../routes/+page.svelte';
+	} from '$lib/entity';
+	import type { Position } from '$lib/visual';
+	import type { GuiMode } from '../../routes/+page.svelte';
 	import { onMount } from 'svelte';
-	import { addTask, updateTask, type Task } from './tasks';
-	import type { YoutubePlaylistInfoResponse } from '../routes/info/+server';
-	import type { YoutubePlaylistResponse } from '../routes/list/+server';
-	import { randomId, randomPosition } from './util';
+	import { addTask, updateTask, type Task } from '$lib/tasks';
+	import type { YoutubePlaylistInfoResponse } from '../../routes/info/+server';
+	import type { YoutubePlaylistResponse } from '../../routes/list/+server';
+	import { randomId, randomPosition } from '$lib/util';
 
 	let sortIndex = 0;
 

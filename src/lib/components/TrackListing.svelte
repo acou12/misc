@@ -8,7 +8,7 @@
 		type SongId,
 		songById,
 		type Song
-	} from './entity';
+	} from '$lib/entity';
 
 	export let entities: Writable<Entity[]>;
 	export let songs: Writable<Song[]>;

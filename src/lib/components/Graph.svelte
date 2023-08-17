@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { Writable } from 'svelte/store';
-	import { songById, type Entity, type Song, type SongId } from './entity';
-	import type { Position } from './visual';
+	import { songById, type Entity, type Song, type SongId } from '$lib/entity';
+	import type { Position } from '$lib/visual';
 	import SongVis from './SongVis.svelte';
 	import { onMount } from 'svelte';
-	import { GuiMode } from '../routes/+page.svelte';
+	import { GuiMode } from '../../routes/+page.svelte';
 
 	let draggingId: number | undefined;
 	let panning = false;

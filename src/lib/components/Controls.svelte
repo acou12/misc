@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { GuiMode } from '../routes/+page.svelte';
-	import ControlsButton from './ControlsButton.svelte';
+	import { GuiMode } from '../../routes/+page.svelte';
+	import ControlsButton from '$lib/components/ControlsButton.svelte';
 
 	const PROGRESS_WIDTH = 500;
 

@@ -12,19 +12,18 @@
 	import youTubePlayer from 'youtube-player';
 	import type { YouTubePlayer } from 'youtube-player/dist/types';
 
-	import Controls from '$lib/Controls.svelte';
+	import Controls from '$lib/components/Controls.svelte';
 
 	import { songById, type Entity, type Song, type SongId, type Collection } from '$lib/entity';
 	import { addTask, deleteTask, updateTask, type Task } from '$lib/tasks';
 	import type { Position } from '$lib/visual';
-	import TrackListing from '$lib/TrackListing.svelte';
+	import TrackListing from '$lib/components/TrackListing.svelte';
 	import type { YoutubePlaylistResponse } from './list/+server';
 	import type { YoutubePlaylistInfoResponse } from './info/+server';
 	import { smartSyncStore } from '$lib/store';
 	import { randomId, randomPosition } from '$lib/util';
-	import Graph from '$lib/Graph.svelte';
-	import List from '$lib/List.svelte';
-	import { demoEntities, demoPositions } from './data';
+	import Graph from '$lib/components/Graph.svelte';
+	import List from '$lib/components/List.svelte';
 
 	let player: YouTubePlayer;
 	let playing = false;
