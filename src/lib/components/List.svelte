@@ -17,6 +17,7 @@
 	import type { YoutubePlaylistInfoResponse } from '../../routes/info/+server';
 	import type { YoutubePlaylistResponse } from '../../routes/list/+server';
 	import { randomId, randomPosition } from '$lib/util';
+	import { base } from '$app/paths';
 
 	let sortIndex = 0;
 
@@ -101,7 +102,7 @@
 			return;
 		}
 
-		const infoData = (await fetch(`/info?id=${queryParams.get('list')}`).then((it) =>
+		const infoData = (await fetch(`${base}/info?id=${queryParams.get('list')}`).then((it) =>
 			it.json()
 		)) as YoutubePlaylistInfoResponse;
 
@@ -111,7 +112,7 @@
 		const artist = albumData.channelTitle;
 		const artwork = Object.entries(albumData.thumbnails)[0][1].url;
 
-		const listData = (await fetch(`/list?list=${queryParams.get('list')}`).then((it) =>
+		const listData = (await fetch(`${base}/list?list=${queryParams.get('list')}`).then((it) =>
 			it.json()
 		)) as YoutubePlaylistResponse;
 
